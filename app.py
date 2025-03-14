@@ -10,7 +10,6 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 # Store received sensor data (temporary storage for testing)
 sensor_data = {}
 
-# ----------------- ✅ Register a Patient -----------------
 @app.route('/register/patient', methods=['POST'])
 def register_patient():
     data = request.json
@@ -26,19 +25,18 @@ def register_patient():
         modify_data(sql_user, (data['FullName'], data['Email'], hashed_password, 'patient'))
 
         # Retrieve UserID by looking up the user via email
-        sql_check_user = "SELECT userid FROM users WHERE email = %s"  # ✅ lowercase
+        sql_check_user = "SELECT userid FROM users WHERE email = %s"  
         user_check_result = fetch_data(sql_check_user, (data['Email'],))
 
         if user_check_result is None:
             return jsonify({"error": "Failed to retrieve UserID from users table"}), 500
 
-        user_id = user_check_result['userid']  # ✅ lowercase
+        user_id = user_check_result['userid']  
         print(f"Retrieved UserID from users table: {user_id}")  # Debugging output
 
         # Now insert the patient details into the patients table
         sql_patient = """
-        INSERT INTO patients (userid, gender, age, contact) 
-        VALUES (%s, %s, %s, %s)
+        INSERT INTO patients (userid, gender, age, contact) VALUES (%s, %s, %s, %s)
         """
         modify_data(sql_patient, (user_id, data['Gender'], data['Age'], data['Contact']))
 
@@ -48,7 +46,6 @@ def register_patient():
         return jsonify({"error": f"An error occurred: {e}"}), 500
 
 
-# ----------------- ✅ Login for a patient -----------------
 @app.route('/login/patient', methods=['POST'])
 def login_patient():
     data = request.json
@@ -57,15 +54,15 @@ def login_patient():
         sql = "SELECT * FROM users WHERE email = %s"
         user = fetch_data(sql, (data['Email'],))
 
-        if user and user['role'] == 'patient':  # ✅ lowercase
+        if user and user['role'] == 'patient':  
             # Fetch the patient details based on UserID
             sql_patient = "SELECT * FROM patients WHERE userid = %s"
-            patient = fetch_data(sql_patient, (user['userid'],))  # ✅ lowercase
+            patient = fetch_data(sql_patient, (user['userid'],))  
 
             if patient:  # Ensure patient details exist
                 # Check the hashed password using bcrypt
-                if bcrypt.checkpw(data['Password'].encode(), user['password'].encode('utf-8')):  # ✅ lowercase
-                    return jsonify({"message": "Login successful!", "patient_id": patient['patientid']}), 200  # ✅ lowercase
+                if bcrypt.checkpw(data['Password'].encode(), user['password'].encode('utf-8')):  
+                    return jsonify({"message": "Login successful!", "patient_id": patient['patientid']}), 200  
                 else:
                     return jsonify({"message": "Invalid email or password"}), 401
             else:
@@ -76,7 +73,6 @@ def login_patient():
         return jsonify({"error": "An error occurred, please try again later."}), 500
 
 
-# ----------------- ✅ Register a Specialist -----------------
 @app.route('/register/specialist', methods=['POST'])
 def register_specialist():
     data = request.json
@@ -92,13 +88,13 @@ def register_specialist():
         modify_data(sql_user, (data['FullName'], data['Email'], hashed_password, 'specialist'))
 
         # Retrieve UserID by looking up the user via email
-        sql_check_user = "SELECT userid FROM users WHERE email = %s"  # ✅ lowercase
+        sql_check_user = "SELECT userid FROM users WHERE email = %s"  
         user_check_result = fetch_data(sql_check_user, (data['Email'],))
 
         if user_check_result is None:
             return jsonify({"error": "Failed to retrieve UserID from users table"}), 500
 
-        user_id = user_check_result['userid']  # ✅ lowercase
+        user_id = user_check_result['userid']  
         print(f"Retrieved UserID from users table: {user_id}")  # Debugging output
 
         # Now insert the specialist details into the health_specialist table
@@ -114,7 +110,6 @@ def register_specialist():
         return jsonify({"error": f"An error occurred: {e}"}), 500
 
 
-# ----------------- ✅ Login for a health specialist -----------------
 @app.route('/login/specialist', methods=['POST'])
 def login_specialist():
     data = request.json
@@ -123,15 +118,15 @@ def login_specialist():
         sql = "SELECT * FROM users WHERE email = %s"
         user = fetch_data(sql, (data['Email'],))
 
-        if user and user['role'] == 'specialist':  # ✅ lowercase
+        if user and user['role'] == 'specialist':  
             # Fetch the health specialist details based on UserID
             sql_specialist = "SELECT * FROM health_specialist WHERE userid = %s"
-            specialist = fetch_data(sql_specialist, (user['userid'],))  # ✅ lowercase
+            specialist = fetch_data(sql_specialist, (user['userid'],))  
 
             if specialist:  # Ensure health specialist details exist
                 # Check the hashed password using bcrypt
-                if bcrypt.checkpw(data['Password'].encode(), user['password'].encode('utf-8')):  # ✅ lowercase
-                    return jsonify({"message": "Login successful!", "specialist_id": specialist['specialistid']}), 200  # ✅ lowercase
+                if bcrypt.checkpw(data['Password'].encode(), user['password'].encode('utf-8')):  
+                    return jsonify({"message": "Login successful!", "specialist_id": specialist['specialistid']}), 200  
                 else:
                     return jsonify({"message": "Invalid email or password"}), 401
             else:
@@ -177,7 +172,7 @@ def login_specialist():
 #             "timestamp": timestamp
 #         }
 
-#         print(f"✅ Received Data for Patient {patient_id}: {sensor_data}")
+#         print(f"Received Data for Patient {patient_id}: {sensor_data}")
 
 #         # **Save Data into `health_vitals` Table**
 #         sql_insert = """
@@ -234,21 +229,21 @@ def get_patient_id():
             return jsonify({"error": "Email is required"}), 400
 
         # Fetch user details using email
-        sql_user = "SELECT UserID, Role FROM users WHERE Email = %s"
+        sql_user = "SELECT userid, role FROM users WHERE email = %s"
         user = fetch_data(sql_user, (email,))
 
         if not user:
             return jsonify({"error": "User not found"}), 404
 
         # Fetch the corresponding patient ID
-        sql_patient = "SELECT PatientID FROM patients WHERE UserID = %s"
-        patient = fetch_data(sql_patient, (user['UserID'],))
+        sql_patient = "SELECT patientid FROM patients WHERE userid = %s"
+        patient = fetch_data(sql_patient, (user['userid'],))
 
         if not patient:
             return jsonify({"error": "Patient record not found"}), 404
 
         # Return both patient_id and role
-        return jsonify({"patient_id": patient['PatientID'], "role": user['Role']}), 200
+        return jsonify({"patient_id": patient['patientid'], "role": user['role']}), 200
 
     except Exception as e:
         return jsonify({"error": f"An error occurred: {e}"}), 500
@@ -262,20 +257,20 @@ def get_specialist_id():
             return jsonify({"error": "Email is required"}), 400
 
         # Fetch user details using email
-        sql_user = "SELECT UserID, Role FROM users WHERE Email = %s"
+        sql_user = "SELECT userid, role FROM users WHERE email = %s"
         user = fetch_data(sql_user, (email,))
 
         if not user:
             return jsonify({"error": "User not found"}), 404
 
         # Fetch the corresponding specialist ID
-        sql_specialist = "SELECT SpecialistID FROM health_specialist WHERE UserID = %s"
-        specialist = fetch_data(sql_specialist, (user['UserID'],))
+        sql_specialist = "SELECT specialistid FROM health_specialist WHERE userid = %s"
+        specialist = fetch_data(sql_specialist, (user['userid'],))
 
         if not specialist:
             return jsonify({"error": "Specialist record not found"}), 404
 
-        return jsonify({"specialist_id": specialist['SpecialistID'], "role": user['Role']}), 200
+        return jsonify({"specialist_id": specialist['specialistid'], "role": user['role']}), 200
 
     except Exception as e:
         return jsonify({"error": f"An error occurred: {e}"}), 500
@@ -292,17 +287,17 @@ def register_mac():
             return jsonify({"error": "MAC address and patient ID are required"}), 400
 
         # Check if the patient exists
-        patient_check = fetch_data("SELECT * FROM patients WHERE PatientID = %s", (patient_id,))
+        patient_check = fetch_data("SELECT * FROM patients WHERE patientid = %s", (patient_id,))
         if not patient_check:
             return jsonify({"error": "Invalid Patient ID. Patient does not exist."}), 404
 
         # Check if the SmartShirt is already registered
-        existing_entry = fetch_data("SELECT * FROM smartshirt WHERE DeviceMAC = %s", (mac_address,))
+        existing_entry = fetch_data("SELECT * FROM smartshirt WHERE devicemac = %s", (mac_address,))
         if existing_entry:
-            return jsonify({"message": "SmartShirt already registered!", "smartshirt_id": existing_entry['smartshirtID']}), 200
+            return jsonify({"message": "SmartShirt already registered!", "smartshirt_id": existing_entry['smartshirtid']}), 200
 
         # Register new SmartShirt
-        sql = "INSERT INTO smartshirt (patientID, DeviceMAC, ShirtStatus) VALUES (%s, %s, %s)"
+        sql = "INSERT INTO smartshirt (patientid, devicemac, shirtstatus) VALUES (%s, %s, %s)"
         modify_data(sql, (patient_id, mac_address, True))
 
         return jsonify({"message": "MAC registered successfully!"}), 201
@@ -317,9 +312,9 @@ def check_smartshirt():
         if not mac_address:
             return jsonify({"error": "MAC address is required"}), 400
 
-        result = fetch_data("SELECT DeviceMAC, ShirtStatus FROM smartshirt WHERE DeviceMAC = %s", (mac_address,))
+        result = fetch_data("SELECT devicemac, shirtstatus FROM smartshirt WHERE devicemac = %s", (mac_address,))
         if result:
-            return jsonify({"exists": True, "shirt_status": bool(result["ShirtStatus"])}), 200
+            return jsonify({"exists": True, "shirt_status": bool(result["shirtstatus"])}), 200
         else:
             return jsonify({"exists": False}), 404
     except Exception as e:
@@ -332,11 +327,11 @@ def get_smartshirts():
         if not patient_id:
             return jsonify({"error": "Patient ID is required"}), 400
 
-        results = fetch_all_data("SELECT DeviceMAC, ShirtStatus FROM smartshirt WHERE patientID = %s", (patient_id,))
+        results = fetch_all_data("SELECT devicemac, shirtstatus FROM smartshirt WHERE patientid = %s", (patient_id,))
         if results:
             # Convert ShirtStatus to boolean
             for result in results:
-                result["ShirtStatus"] = bool(result["ShirtStatus"])
+                result["shirtstatus"] = bool(result["shirtstatus"])
             return jsonify({"smartshirts": results}), 200
         else:
             return jsonify({"message": "No SmartShirts found"}), 404
@@ -371,10 +366,10 @@ def get_patient_profile():
 
         # **SQL Query to fetch FullName, Gender, and Age**
         sql_query = """
-        SELECT u.FullName, u.Email, p.Gender, p.Age, p.Contact, p.PatientID
+        SELECT u.fullname, u.email, p.gender, p.age, p.contact, p.patientid
         FROM patients p
-        JOIN users u ON p.UserID = u.UserID
-        WHERE p.patientID = %s
+        JOIN users u ON p.userid = u.userid
+        WHERE p.patientid = %s
         """
         #, p.Weight
         patient_profile = fetch_data(sql_query, (patient_id,))
@@ -397,27 +392,23 @@ def get_specialist_profile():
 
         print(f"🟢 Fetching profile for Specialist ID: {specialist_id}")
 
-        # First raw check
-        raw_check = fetch_data("SELECT * FROM health_specialist WHERE SpecialistID = %s", (specialist_id,))
-        print("🔍 Raw specialist check:", raw_check)
-
         sql_query = """
-        SELECT u.FullName, u.Email, h.Profession, h.Speciality, h.SpecialistID
+        SELECT u.fullname, u.email, h.profession, h.speciality, h.specialistid
         FROM health_specialist h
-        JOIN users u ON h.UserID = u.UserID
-        WHERE h.SpecialistID = %s
+        JOIN users u ON h.userid = u.userid
+        WHERE h.specialistid = %s
         """
         
         specialist_profile = fetch_data(sql_query, (specialist_id,))
 
         if not specialist_profile:
-            print(f"❌ No profile found for Specialist ID: {specialist_id}")  # Debugging output
+            print(f"No profile found for Specialist ID: {specialist_id}")  # Debugging output
             return jsonify({"error": "No user profile found"}), 404
 
         return jsonify(specialist_profile), 200
 
     except Exception as e:
-        print(f"❌ Exception occurred: {e}")
+        print(f"Exception occurred: {e}")
         return jsonify({"error": f"An error occurred: {e}"}), 500
 
 @app.route('/update_patient_profile', methods=['POST'])
@@ -437,16 +428,16 @@ def update_patient_profile():
         # **Update `users` table (Full Name & Email)**
         update_user_query = """
         UPDATE users 
-        SET FullName = %s, Email = %s 
-        WHERE UserID = (SELECT UserID FROM patients WHERE patientID = %s)
+        SET fullname = %s, email = %s 
+        WHERE userid = (SELECT userid FROM patients WHERE patientid = %s)
         """
         modify_data(update_user_query, (full_name, email, patient_id))
 
         # **Update `patients` table (Gender, Age, Contact)**
         update_patient_query = """
         UPDATE patients 
-        SET Gender = %s, Age = %s, Contact = %s 
-        WHERE patientID = %s
+        SET gender = %s, age = %s, contact = %s 
+        WHERE patientid = %s
         """
         modify_data(update_patient_query, (gender, age, contact, patient_id))
 
@@ -468,26 +459,26 @@ def update_specialist_profile():
         if not specialist_id:
             return jsonify({"error": "Specialist ID is required"}), 400
 
-        # ✅ Update FullName & Email in users table via UserID lookup
+        # Update FullName & Email in users table via UserID lookup
         update_user_query = """
         UPDATE users 
-        SET FullName = %s, Email = %s 
-        WHERE UserID = (SELECT UserID FROM health_specialist WHERE SpecialistID = %s)
+        SET fullname = %s, email = %s 
+        WHERE userid = (SELECT userid FROM health_specialist WHERE specialistid = %s)
         """
         modify_data(update_user_query, (full_name, email, specialist_id))
 
-        # ✅ Update Profession & Speciality in health_specialist
+        # Update Profession & Speciality in health_specialist
         update_specialist_query = """
         UPDATE health_specialist 
-        SET Profession = %s, Speciality = %s
-        WHERE SpecialistID = %s
+        SET profession = %s, speciality = %s
+        WHERE specialistid = %s
         """
         modify_data(update_specialist_query, (profession, speciality, specialist_id))
 
         return jsonify({"message": "Specialist profile updated successfully"}), 200
 
     except Exception as e:
-        print(f"❌ Error updating specialist profile: {e}")
+        print(f"Error updating specialist profile: {e}")
         return jsonify({"error": f"An error occurred: {e}"}), 500
 
 @app.route('/get_trusted_contacts', methods=['GET'])
@@ -500,10 +491,11 @@ def get_trusted_contacts():
         print(f"🟢 Fetching trusted contacts for Patient ID: {patient_id}")
 
         sql_query = """
-        SELECT ContactID, ContactName, ContactNumber
+        SELECT contactid, contactname, contactnumber
         FROM trusted_contacts
-        WHERE PatientID = %s
+        WHERE patientid = %s
         """
+
         contacts = fetch_all_data(sql_query, (patient_id,))
 
         if not contacts:
@@ -513,7 +505,7 @@ def get_trusted_contacts():
         return jsonify(contacts), 200  # Always return a list
 
     except Exception as e:
-        print(f"❌ Error fetching contacts: {e}")
+        print(f"Error fetching contacts: {e}")
         return jsonify({"error": "An error occurred"}), 500
 
 @app.route('/add_trusted_contact', methods=['POST'])
@@ -527,7 +519,7 @@ def add_trusted_contact():
         if not (patient_id and contact_name and contact_number):
             return jsonify({"error": "Missing required fields"}), 400
 
-        query = "INSERT INTO trusted_contacts (PatientID, ContactName, ContactNumber) VALUES (%s, %s, %s)"
+        query = "INSERT INTO trusted_contacts (patientid, contactname, contactnumber) VALUES (%s, %s, %s)"
         modify_data(query, (patient_id, contact_name, contact_number))
 
         return jsonify({"message": "Contact added successfully"}), 201
@@ -545,7 +537,7 @@ def update_trusted_contact():
         if not (contact_id and contact_name and contact_number):
             return jsonify({"error": "Missing required fields"}), 400
 
-        query = "UPDATE trusted_contacts SET ContactName = %s, ContactNumber = %s WHERE ContactID = %s"
+        query = "UPDATE trusted_contacts SET contactname = %s, contactnumber = %s WHERE contactid = %s"
         modify_data(query, (contact_name, contact_number, contact_id))
 
         return jsonify({"message": "Contact updated successfully"}), 200
@@ -561,7 +553,7 @@ def delete_trusted_contact():
         if not contact_id:
             return jsonify({"error": "Contact ID is required"}), 400
 
-        query = "DELETE FROM trusted_contacts WHERE ContactID = %s"
+        query = "DELETE FROM trusted_contacts WHERE contactid = %s"
         modify_data(query, (contact_id,))
 
         return jsonify({"message": "Contact deleted successfully"}), 200
@@ -583,9 +575,9 @@ def receive_sensor_data():
 
         # Fetch active SmartShirt (ShirtStatus = 1 means connected)
         sql_query = """
-        SELECT smartshirt.patientID, smartshirt.smartshirtID 
+        SELECT patientid, smartshirtid 
         FROM smartshirt 
-        WHERE smartshirt.ShirtStatus = 1 
+        WHERE shirtstatus = 1 
         LIMIT 1
         """
         result = fetch_data(sql_query)
@@ -593,8 +585,8 @@ def receive_sensor_data():
         if not result:
             return jsonify({"error": "No active SmartShirt found."}), 404
 
-        patient_id = result["patientID"]
-        smartshirt_id = result["smartshirtID"]
+        patient_id = result["patientid"]
+        smartshirt_id = result["smartshirtid"]
 
         # Timestamp
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
@@ -614,7 +606,7 @@ def receive_sensor_data():
 
         # MySQL (Permanent)
         sql_insert = """
-        INSERT INTO health_vitals (timestamp, ecg, respiration_rate, temperature, patientID, smartshirtID) 
+        INSERT INTO health_vitals (timestamp, ecg, respiration_rate, temperature, patientid, smartshirtid) 
         VALUES (%s, %s, %s, %s, %s, %s)
         """
         modify_data(sql_insert, (timestamp, ecg, respiration, temperature, patient_id, smartshirt_id))
@@ -622,7 +614,7 @@ def receive_sensor_data():
         return jsonify({"status": "success", "data": sensor_data}), 200
 
     except Exception as e:
-        print(f"❌ Error in /sensor API: {e}")
+        print(f"Error in /sensor API: {e}")
         return jsonify({"error": f"An error occurred: {e}"}), 500
 
 @app.route('/get_sensor', methods=['GET'])
@@ -652,21 +644,21 @@ def add_patient_to_specialist():
         specialist_id = data['SpecialistID']  # From logged-in specialist context or request
         short_patient_id = data['PatientID'].lower()  # e.g., "804dc24d-ec75"
 
-        # ✅ Correcting to use PatientID column, not UUID
+        # Correcting to use PatientID column, not UUID
         sql_patient_lookup = """
-        SELECT PatientID FROM patients 
-        WHERE LOWER(SUBSTRING(PatientID, 1, 13)) = %s
+        SELECT patientid FROM patients 
+        WHERE LOWER(SUBSTRING(patientid, 1, 13)) = %s
         """
         patient = fetch_data(sql_patient_lookup, (short_patient_id,))
 
         if not patient:
             return jsonify({"message": "Patient not found"}), 404
 
-        patient_id = patient['PatientID']
+        patient_id = patient['patientid']
 
         # Step 2: Insert into bridge table
         sql_add_relation = """
-        INSERT INTO Patient_Specialist (SpecialistID, PatientID)
+        INSERT INTO patient_specialist (specialistid, patientid)
         VALUES (%s, %s)
         """
         modify_data(sql_add_relation, (specialist_id, patient_id))
@@ -681,15 +673,16 @@ def get_specialist_patients(specialist_id):
     try:
         sql = """
         SELECT 
-            p.PatientID, 
-            u.FullName, 
-            u.Email
-        FROM Patient_Specialist ps
-        JOIN patients p ON ps.PatientID = p.PatientID
-        JOIN users u ON p.UserID = u.UserID
-        WHERE ps.SpecialistID = %s
-        ORDER BY ps.HSP_Relation_ID DESC
+            p.patientid, 
+            u.fullname, 
+            u.email
+        FROM patient_specialist ps
+        JOIN patients p ON ps.patientid = p.patientid
+        JOIN users u ON p.userid = u.userid
+        WHERE ps.specialistid = %s
+        ORDER BY ps.hsp_relation_id DESC
         """
+
         patients = fetch_all_data(sql, (specialist_id,))
         return jsonify({"patients": patients}), 200
     except Exception as e:
@@ -699,7 +692,7 @@ def get_specialist_patients(specialist_id):
 def get_patient_insights(patient_id):
     try:
         # Check if patient exists
-        sql_patient_check = "SELECT * FROM patients WHERE PatientID = %s"
+        sql_patient_check = "SELECT * FROM patients WHERE patientid = %s"
         patient_exists = fetch_data(sql_patient_check, (patient_id,))
 
         if not patient_exists:
@@ -713,7 +706,7 @@ def get_patient_insights(patient_id):
             ecg, 
             timestamp
         FROM health_vitals 
-        WHERE patientID = %s 
+        WHERE patientid = %s 
         ORDER BY timestamp DESC 
         LIMIT 1
         """
@@ -722,19 +715,19 @@ def get_patient_insights(patient_id):
         # Fetch basic patient profile (like gender, age, weight)
         sql_profile = """
         SELECT 
-            p.Gender, 
-            p.Age, 
-            u.FullName 
+            p.gender, 
+            p.age, 
+            u.fullname 
         FROM patients p
-        JOIN users u ON p.UserID = u.UserID
-        WHERE p.PatientID = %s
+        JOIN users u ON p.userid = u.userid
+        WHERE p.patientid = %s
         """
         profile = fetch_data(sql_profile, (patient_id,))
 
         if not profile:
             return jsonify({"error": "Patient profile not found"}), 404
 
-        # ✅ Format timestamp to ISO 8601 if exists
+        # Format timestamp to ISO 8601 if exists
         last_updated = None
         if vitals and vitals.get('timestamp'):
             try:
@@ -749,9 +742,9 @@ def get_patient_insights(patient_id):
 
         # Prepare final response
         response = {
-            "FullName": profile.get("FullName", "Unknown"),
-            "Gender": profile.get("Gender", "N/A"),
-            "Age": profile.get("Age", "N/A"),
+            "FullName": profile.get("fullname", "Unknown"),
+            "Gender": profile.get("gender", "N/A"),
+            "Age": profile.get("age", "N/A"),
             # "Weight": profile.get("Weight", "N/A"),  # Add back if needed
             "respiration_rate": vitals.get("respiration_rate") if vitals else "N/A",
             "temperature": vitals.get("temperature") if vitals else "N/A",
@@ -763,7 +756,7 @@ def get_patient_insights(patient_id):
         return jsonify(response), 200
 
     except Exception as e:
-        print(f"❌ Error fetching patient insights: {e}")
+        print(f"Error fetching patient insights: {e}")
         return jsonify({"error": f"An error occurred: {e}"}), 500
 
 if __name__ == '__main__':
