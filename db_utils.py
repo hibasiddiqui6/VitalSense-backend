@@ -77,7 +77,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 
 # Initialize Firebase Admin
-cred = credentials.Certificate("firebase_credentials.json")
+cred = credentials.Certificate("/etc/secrets/firebase_credentials.json")
 firebase_admin.initialize_app(cred)
 
 # Get Firestore DB instance
