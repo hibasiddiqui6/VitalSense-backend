@@ -10,7 +10,7 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 # Store received sensor data (temporary storage for testing)
 sensor_data = {}
 
-#Register a Patient
+# ----------------- ✅ Register a Patient -----------------
 @app.route('/register/patient', methods=['POST'])
 def register_patient():
     data = request.json
@@ -26,18 +26,18 @@ def register_patient():
         modify_data(sql_user, (data['FullName'], data['Email'], hashed_password, 'patient'))
 
         # Retrieve UserID by looking up the user via email
-        sql_check_user = "SELECT UserID FROM users WHERE Email = %s"
+        sql_check_user = "SELECT userid FROM users WHERE email = %s"  # ✅ lowercase
         user_check_result = fetch_data(sql_check_user, (data['Email'],))
 
         if user_check_result is None:
             return jsonify({"error": "Failed to retrieve UserID from users table"}), 500
 
-        user_id = user_check_result['UserID']
+        user_id = user_check_result['userid']  # ✅ lowercase
         print(f"Retrieved UserID from users table: {user_id}")  # Debugging output
 
         # Now insert the patient details into the patients table
         sql_patient = """
-        INSERT INTO patients (UserID, Gender, Age, Contact) 
+        INSERT INTO patients (userid, gender, age, contact) 
         VALUES (%s, %s, %s, %s)
         """
         modify_data(sql_patient, (user_id, data['Gender'], data['Age'], data['Contact']))
@@ -47,24 +47,25 @@ def register_patient():
         print(f"Error: {e}")  # Debugging the full error
         return jsonify({"error": f"An error occurred: {e}"}), 500
 
-# Login for a patient
+
+# ----------------- ✅ Login for a patient -----------------
 @app.route('/login/patient', methods=['POST'])
 def login_patient():
     data = request.json
     try:
         # Fetch the user data based on the email
-        sql = "SELECT * FROM users WHERE Email = %s"
+        sql = "SELECT * FROM users WHERE email = %s"
         user = fetch_data(sql, (data['Email'],))
 
-        if user and user['Role'] == 'patient':  # Ensure user exists and is a patient
+        if user and user['role'] == 'patient':  # ✅ lowercase
             # Fetch the patient details based on UserID
-            sql_patient = "SELECT * FROM patients WHERE UserID = %s"
-            patient = fetch_data(sql_patient, (user['UserID'],))
+            sql_patient = "SELECT * FROM patients WHERE userid = %s"
+            patient = fetch_data(sql_patient, (user['userid'],))  # ✅ lowercase
 
             if patient:  # Ensure patient details exist
                 # Check the hashed password using bcrypt
-                if bcrypt.checkpw(data['Password'].encode(), user['Password'].encode('utf-8')):
-                    return jsonify({"message": "Login successful!", "patient_id": patient['PatientID']}), 200
+                if bcrypt.checkpw(data['Password'].encode(), user['password'].encode('utf-8')):  # ✅ lowercase
+                    return jsonify({"message": "Login successful!", "patient_id": patient['patientid']}), 200  # ✅ lowercase
                 else:
                     return jsonify({"message": "Invalid email or password"}), 401
             else:
@@ -74,7 +75,8 @@ def login_patient():
     except Exception as e:
         return jsonify({"error": "An error occurred, please try again later."}), 500
 
-# Register a Specialist
+
+# ----------------- ✅ Register a Specialist -----------------
 @app.route('/register/specialist', methods=['POST'])
 def register_specialist():
     data = request.json
@@ -90,18 +92,18 @@ def register_specialist():
         modify_data(sql_user, (data['FullName'], data['Email'], hashed_password, 'specialist'))
 
         # Retrieve UserID by looking up the user via email
-        sql_check_user = "SELECT UserID FROM users WHERE Email = %s"
+        sql_check_user = "SELECT userid FROM users WHERE email = %s"  # ✅ lowercase
         user_check_result = fetch_data(sql_check_user, (data['Email'],))
 
         if user_check_result is None:
             return jsonify({"error": "Failed to retrieve UserID from users table"}), 500
 
-        user_id = user_check_result['UserID']
+        user_id = user_check_result['userid']  # ✅ lowercase
         print(f"Retrieved UserID from users table: {user_id}")  # Debugging output
 
         # Now insert the specialist details into the health_specialist table
         sql_specialist = """
-        INSERT INTO health_specialist (UserID, Profession, Speciality) 
+        INSERT INTO health_specialist (userid, profession, speciality) 
         VALUES (%s, %s, %s)
         """
         modify_data(sql_specialist, (user_id, data['Profession'], data['Speciality']))
@@ -111,24 +113,25 @@ def register_specialist():
         print(f"Error: {e}")  # Debugging the full error
         return jsonify({"error": f"An error occurred: {e}"}), 500
 
-# Login for a health specialist
+
+# ----------------- ✅ Login for a health specialist -----------------
 @app.route('/login/specialist', methods=['POST'])
 def login_specialist():
     data = request.json
     try:
         # Fetch the user data based on the email
-        sql = "SELECT * FROM users WHERE Email = %s"
+        sql = "SELECT * FROM users WHERE email = %s"
         user = fetch_data(sql, (data['Email'],))
 
-        if user and user['Role'] == 'specialist':  # ✅ Correct role check
+        if user and user['role'] == 'specialist':  # ✅ lowercase
             # Fetch the health specialist details based on UserID
-            sql_specialist = "SELECT * FROM health_specialist WHERE UserID = %s"
-            specialist = fetch_data(sql_specialist, (user['UserID'],))
+            sql_specialist = "SELECT * FROM health_specialist WHERE userid = %s"
+            specialist = fetch_data(sql_specialist, (user['userid'],))  # ✅ lowercase
 
             if specialist:  # Ensure health specialist details exist
                 # Check the hashed password using bcrypt
-                if bcrypt.checkpw(data['Password'].encode(), user['Password'].encode('utf-8')):
-                    return jsonify({"message": "Login successful!", "specialist_id": specialist['SpecialistID']}), 200
+                if bcrypt.checkpw(data['Password'].encode(), user['password'].encode('utf-8')):  # ✅ lowercase
+                    return jsonify({"message": "Login successful!", "specialist_id": specialist['specialistid']}), 200  # ✅ lowercase
                 else:
                     return jsonify({"message": "Invalid email or password"}), 401
             else:
