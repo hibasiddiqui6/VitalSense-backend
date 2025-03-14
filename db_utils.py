@@ -1,21 +1,23 @@
 import mysql.connector
 from mysql.connector import Error
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
 # Database connection setup
 def get_db_connection():
     try:
-        # Try connecting to the database
-        connection = mysql.connector.connect(
-            host="localhost",
-            user="root",
-            password="Hiba@123",
-            database="vitalsense_db"
+        connection = psycopg2.connect(
+            host="dpg-cvaavhin91rc7392d75g-a.oregon-postgres.render.com",  # Render PostgreSQL host
+            database="vitalsense_db",  # Database name
+            user="vitalsenseroot",
+            password="qnWmiYp7bIA7cw1MNN3O48yocAn4M0ZS",
+            port=5432
         )
         if connection.is_connected():
             return connection
-    except Error as e:
+    except Exception as e:
         print(f"Error: Unable to connect to the database. {e}")
-        raise e  # Reraise the error after logging it
+        raise e
 
 # Function to execute SELECT queries
 def fetch_data(query, params=None):
