@@ -733,7 +733,7 @@ def get_patient_insights(patient_id):
 
         # Prepare final response
         response = {
-            "fullName": profile.get("fullname", "Unknown"),
+            "fullname": profile.get("fullname", "Unknown"),
             "gender": profile.get("gender", "-"),
             "age": profile.get("age", "-"),
             # "Weight": profile.get("Weight", "-"), 
