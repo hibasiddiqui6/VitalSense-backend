@@ -733,13 +733,13 @@ def get_patient_insights(patient_id):
 
         # Prepare final response
         response = {
-            "FullName": profile.get("fullname", "Unknown"),
-            "Gender": profile.get("gender", "N/A"),
-            "Age": profile.get("age", "N/A"),
-            # "Weight": profile.get("Weight", "N/A"),  # Add back if needed
-            "respiration_rate": vitals.get("respiration_rate") if vitals else "N/A",
-            "temperature": vitals.get("temperature") if vitals else "N/A",
-            "ecg": vitals.get("ecg") if vitals else "N/A",
+            "fullName": profile.get("fullname", "Unknown"),
+            "gender": profile.get("gender", "-"),
+            "age": profile.get("age", "-"),
+            # "Weight": profile.get("Weight", "-"), 
+            "respiration_rate": vitals.get("respiration_rate") if vitals else "-",
+            "temperature": vitals.get("temperature") if vitals else "-",
+            "ecg": vitals.get("ecg") if vitals else "-",
             "last_updated": last_updated if last_updated else None
         }
         print(response)
