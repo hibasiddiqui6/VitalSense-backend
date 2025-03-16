@@ -15,22 +15,22 @@ def register_patient():
     data = request.json
     try:
         # Hash and decode password
-        hashed_password = bcrypt.hashpw(data['Password'].encode(), bcrypt.gensalt()).decode('utf-8')
+        hashed_password = bcrypt.hashpw(data['password'].encode(), bcrypt.gensalt()).decode('utf-8')
 
         # Insert user
         sql_user = "INSERT INTO users (fullname, email, password, role) VALUES (%s, %s, %s, %s)"
-        modify_data(sql_user, (data['FullName'], data['Email'], hashed_password, 'patient'))
+        modify_data(sql_user, (data['fullname'], data['email'], hashed_password, 'patient'))
 
         # Get user ID
         sql_check_user = "SELECT userid FROM users WHERE email = %s"
-        user_check_result = fetch_data(sql_check_user, (data['Email'],))
+        user_check_result = fetch_data(sql_check_user, (data['email'],))
         if user_check_result is None:
             return jsonify({"error": "Failed to retrieve UserID from users table"}), 500
         user_id = user_check_result['userid']
 
         # Insert patient
         sql_patient = "INSERT INTO patients (userid, gender, age, contact) VALUES (%s, %s, %s, %s)"
-        modify_data(sql_patient, (user_id, data['Gender'], data['Age'], data['Contact']))
+        modify_data(sql_patient, (user_id, data['gender'], data['age'], data['contact']))
 
         return jsonify({"message": "Patient registered successfully!"}), 201
     except Exception as e:
@@ -43,7 +43,7 @@ def login_patient():
     try:
         # Fetch user by email
         sql = "SELECT * FROM users WHERE email = %s"
-        user = fetch_data(sql, (data['Email'],))
+        user = fetch_data(sql, (data['email'],))
 
         if user and user['role'] == 'patient':
             # Fetch patient by userid
@@ -52,7 +52,7 @@ def login_patient():
 
             if patient:
                 # Check password (hashed correctly now)
-                if bcrypt.checkpw(data['Password'].encode(), user['password'].encode()):
+                if bcrypt.checkpw(data['password'].encode(), user['password'].encode()):
                     return jsonify({"message": "Login successful!", "patient_id": patient['patientid']}), 200
                 else:
                     return jsonify({"message": "Invalid email or password"}), 401
@@ -69,18 +69,18 @@ def register_specialist():
     data = request.json
     try:
         # Hash the password using bcrypt
-        hashed_password = bcrypt.hashpw(data['Password'].encode(), bcrypt.gensalt()).decode('utf-8')
+        hashed_password = bcrypt.hashpw(data['password'].encode(), bcrypt.gensalt()).decode('utf-8')
 
         # Insert the new user into the users table
         sql_user = """
         INSERT INTO users (FullName, Email, Password, Role) 
         VALUES (%s, %s, %s, %s)
         """
-        modify_data(sql_user, (data['FullName'], data['Email'], hashed_password, 'specialist'))
+        modify_data(sql_user, (data['fullname'], data['email'], hashed_password, 'specialist'))
 
         # Retrieve UserID by looking up the user via email
         sql_check_user = "SELECT userid FROM users WHERE email = %s"  
-        user_check_result = fetch_data(sql_check_user, (data['Email'],))
+        user_check_result = fetch_data(sql_check_user, (data['email'],))
 
         if user_check_result is None:
             return jsonify({"error": "Failed to retrieve UserID from users table"}), 500
@@ -93,7 +93,7 @@ def register_specialist():
         INSERT INTO health_specialist (userid, profession, speciality) 
         VALUES (%s, %s, %s)
         """
-        modify_data(sql_specialist, (user_id, data['Profession'], data['Speciality']))
+        modify_data(sql_specialist, (user_id, data['profession'], data['speciality']))
 
         return jsonify({"message": "Specialist registered successfully!"}), 201
     except Exception as e:
@@ -106,7 +106,7 @@ def login_specialist():
     try:
         # Fetch the user data based on the email
         sql = "SELECT * FROM users WHERE email = %s"
-        user = fetch_data(sql, (data['Email'],))
+        user = fetch_data(sql, (data['email'],))
 
         if user and user['role'] == 'specialist':  
             # Fetch the health specialist details based on UserID
@@ -115,7 +115,7 @@ def login_specialist():
 
             if specialist:  # Ensure health specialist details exist
                 # Check the hashed password using bcrypt
-                if bcrypt.checkpw(data['Password'].encode(), user['password'].encode()):
+                if bcrypt.checkpw(data['password'].encode(), user['password'].encode()):
                     return jsonify({"message": "Login successful!", "specialist_id": specialist['specialistid']}), 200  
                 else:
                     return jsonify({"message": "Invalid email or password"}), 401
@@ -631,8 +631,8 @@ def get_sensor_data():
 def add_patient_to_specialist():
     data = request.json
     try:
-        specialist_id = data['SpecialistID']  # From logged-in specialist context or request
-        short_patient_id = data['PatientID'].lower()  # e.g., "804dc24d-ec75"
+        specialist_id = data['specialistid']  # From logged-in specialist context or request
+        short_patient_id = data['patientid'].lower()  # e.g., "804dc24d-ec75"
 
         # Correcting to use PatientID column, not UUID
         sql_patient_lookup = """
