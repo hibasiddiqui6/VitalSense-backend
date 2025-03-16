@@ -3,6 +3,7 @@ from flask_cors import CORS
 import bcrypt  # For secure password hashing
 from db_utils import fetch_data, fetch_all_data, modify_data, get_db_connection, insert_data, fetch_latest_data  # Import database utility functions
 from datetime import datetime
+import os
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -751,4 +752,5 @@ def get_patient_insights(patient_id):
         return jsonify({"error": f"An error occurred: {e}"}), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=False) 
+    port = int(os.environ.get('PORT', 5000)) 
+    app.run(host='0.0.0.0', port=port, debug=False)
