@@ -634,10 +634,10 @@ def add_patient_to_specialist():
         specialist_id = data['specialistid']  # From logged-in specialist context or request
         short_patient_id = data['patientid'].lower()  # e.g., "804dc24d-ec75"
 
-        # Correcting to use PatientID column, not UUID
+        # Correct to use UUID casted as text
         sql_patient_lookup = """
         SELECT patientid FROM patients 
-        WHERE LOWER(SUBSTRING(patientid, 1, 13)) = %s
+        WHERE LOWER(SUBSTRING(patientid::text, 1, 13)) = %s
         """
         patient = fetch_data(sql_patient_lookup, (short_patient_id,))
 
@@ -646,7 +646,7 @@ def add_patient_to_specialist():
 
         patient_id = patient['patientid']
 
-        # Step 2: Insert into bridge table
+        # Step 2: Insert into bridge table (patient_specialist)
         sql_add_relation = """
         INSERT INTO patient_specialist (specialistid, patientid)
         VALUES (%s, %s)
@@ -654,6 +654,7 @@ def add_patient_to_specialist():
         modify_data(sql_add_relation, (specialist_id, patient_id))
 
         return jsonify({"message": "Patient successfully added!"}), 201
+
     except Exception as e:
         print(f"Error: {e}")
         return jsonify({"error": "An error occurred while adding the patient."}), 500
