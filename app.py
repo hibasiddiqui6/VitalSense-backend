@@ -11,6 +11,10 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 # Store received sensor data (temporary storage for testing)
 sensor_data = {}
 
+@app.route('/')
+def home():
+    return 'API is running!', 200
+
 @app.route('/register/patient', methods=['POST'])
 def register_patient():
     data = request.json
