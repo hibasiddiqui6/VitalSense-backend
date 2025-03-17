@@ -435,7 +435,7 @@ def update_patient_profile():
         SET gender = %s, age = %s, contact = %s, weight = %s 
         WHERE patientid = %s
         """
-        modify_data(update_patient_query, (gender, age, contact, patient_id, weight))
+        modify_data(update_patient_query, (gender, age, contact, weight, patient_id))
 
         return jsonify({"message": "Profile updated successfully"}), 200
 
