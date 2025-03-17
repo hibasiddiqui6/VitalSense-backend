@@ -34,7 +34,7 @@ def register_patient():
         user_id = user_check_result['userid']
 
         # Insert patient
-        sql_patient = "INSERT INTO patients (userid, gender, age, contact, weight) VALUES (%s, %s, %s, %s)"
+        sql_patient = "INSERT INTO patients (userid, gender, age, contact, weight) VALUES (%s, %s, %s, %s, %s)"
         modify_data(sql_patient, (user_id, data['gender'], data['age'], data['contact'], data['weight']))
 
         return jsonify({"message": "Patient registered successfully!"}), 201
