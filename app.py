@@ -19,16 +19,19 @@ def home():
 def register_patient():
     data = request.json
     try:
+        # Always store email in lowercase
+        email = data['email'].lower()  
+
         # Hash and decode password
         hashed_password = bcrypt.hashpw(data['password'].encode(), bcrypt.gensalt()).decode('utf-8')
 
         # Insert user
         sql_user = "INSERT INTO users (fullname, email, password, role) VALUES (%s, %s, %s, %s)"
-        modify_data(sql_user, (data['fullname'], data['email'], hashed_password, 'patient'))
+        modify_data(sql_user, (data['fullname'], email, hashed_password, 'patient'))
 
         # Get user ID
         sql_check_user = "SELECT userid FROM users WHERE email = %s"
-        user_check_result = fetch_data(sql_check_user, (data['email'],))
+        user_check_result = fetch_data(sql_check_user, (email,))
         if user_check_result is None:
             return jsonify({"error": "Failed to retrieve UserID from users table"}), 500
         user_id = user_check_result['userid']
@@ -46,9 +49,11 @@ def register_patient():
 def login_patient():
     data = request.json
     try:
-        # Fetch user by email
-        sql = "SELECT * FROM users WHERE email = %s"
-        user = fetch_data(sql, (data['email'],))
+        # Fetch user by email in lowercase
+        email = data['email'].lower()
+
+        sql = "SELECT * FROM users WHERE LOWER(email) = %s"
+        user = fetch_data(sql, (email,))
 
         if user and user['role'] == 'patient':
             # Fetch patient by userid
@@ -56,7 +61,7 @@ def login_patient():
             patient = fetch_data(sql_patient, (user['userid'],))  
 
             if patient:
-                # Check password (hashed correctly now)
+                # Check password
                 if bcrypt.checkpw(data['password'].encode(), user['password'].encode()):
                     return jsonify({"message": "Login successful!", "patient_id": patient['patientid']}), 200
                 else:
@@ -66,34 +71,32 @@ def login_patient():
         else:
             return jsonify({"message": "Invalid email or password"}), 401
     except Exception as e:
-        print(f"Error during login: {e}")  # Add this debug line to see actual error in console
+        print(f"Error during login: {e}")
         return jsonify({"error": "An error occurred, please try again later."}), 500
 
 @app.route('/register/specialist', methods=['POST'])
 def register_specialist():
     data = request.json
     try:
-        # Hash the password using bcrypt
+        email = data['email'].lower()  
+
         hashed_password = bcrypt.hashpw(data['password'].encode(), bcrypt.gensalt()).decode('utf-8')
 
-        # Insert the new user into the users table
         sql_user = """
         INSERT INTO users (FullName, Email, Password, Role) 
         VALUES (%s, %s, %s, %s)
         """
-        modify_data(sql_user, (data['fullname'], data['email'], hashed_password, 'specialist'))
+        modify_data(sql_user, (data['fullname'], email, hashed_password, 'specialist'))
 
-        # Retrieve UserID by looking up the user via email
-        sql_check_user = "SELECT userid FROM users WHERE email = %s"  
-        user_check_result = fetch_data(sql_check_user, (data['email'],))
+        sql_check_user = "SELECT userid FROM users WHERE email = %s"
+        user_check_result = fetch_data(sql_check_user, (email,))
 
         if user_check_result is None:
             return jsonify({"error": "Failed to retrieve UserID from users table"}), 500
 
         user_id = user_check_result['userid']  
-        print(f"Retrieved UserID from users table: {user_id}")  # Debugging output
+        print(f"Retrieved UserID from users table: {user_id}")
 
-        # Now insert the specialist details into the health_specialist table
         sql_specialist = """
         INSERT INTO health_specialist (userid, profession, speciality) 
         VALUES (%s, %s, %s)
@@ -102,24 +105,23 @@ def register_specialist():
 
         return jsonify({"message": "Specialist registered successfully!"}), 201
     except Exception as e:
-        print(f"Error: {e}")  # Debugging the full error
+        print(f"Error: {e}")
         return jsonify({"error": f"An error occurred: {e}"}), 500
 
 @app.route('/login/specialist', methods=['POST'])
 def login_specialist():
     data = request.json
     try:
-        # Fetch the user data based on the email
-        sql = "SELECT * FROM users WHERE email = %s"
-        user = fetch_data(sql, (data['email'],))
+        email = data['email'].lower()  
 
-        if user and user['role'] == 'specialist':  
-            # Fetch the health specialist details based on UserID
+        sql = "SELECT * FROM users WHERE LOWER(email) = %s"
+        user = fetch_data(sql, (email,))
+
+        if user and user['role'] == 'specialist':
             sql_specialist = "SELECT * FROM health_specialist WHERE userid = %s"
             specialist = fetch_data(sql_specialist, (user['userid'],))  
 
-            if specialist:  # Ensure health specialist details exist
-                # Check the hashed password using bcrypt
+            if specialist:
                 if bcrypt.checkpw(data['password'].encode(), user['password'].encode()):
                     return jsonify({"message": "Login successful!", "specialist_id": specialist['specialistid']}), 200  
                 else:
@@ -129,6 +131,7 @@ def login_specialist():
         else:
             return jsonify({"message": "Invalid email or password"}), 401
     except Exception as e:
+        print(f"Error during specialist login: {e}")
         return jsonify({"error": "An error occurred, please try again later."}), 500
 
 #Only MySQL
