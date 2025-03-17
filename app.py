@@ -34,8 +34,8 @@ def register_patient():
         user_id = user_check_result['userid']
 
         # Insert patient
-        sql_patient = "INSERT INTO patients (userid, gender, age, contact) VALUES (%s, %s, %s, %s)"
-        modify_data(sql_patient, (user_id, data['gender'], data['age'], data['contact']))
+        sql_patient = "INSERT INTO patients (userid, gender, age, contact, weight) VALUES (%s, %s, %s, %s)"
+        modify_data(sql_patient, (user_id, data['gender'], data['age'], data['contact'], data['weight']))
 
         return jsonify({"message": "Patient registered successfully!"}), 201
     except Exception as e:
@@ -361,7 +361,7 @@ def get_patient_profile():
 
         # **SQL Query to fetch FullName, Gender, and Age**
         sql_query = """
-        SELECT u.fullname, u.email, p.gender, p.age, p.contact, p.patientid
+        SELECT u.fullname, u.email, p.gender, p.age, p.contact, p.patientid, p.weight
         FROM patients p
         JOIN users u ON p.userid = u.userid
         WHERE p.patientid = %s
@@ -416,6 +416,7 @@ def update_patient_profile():
         age = data.get("age")
         email = data.get("email")
         contact = data.get("contact")
+        weight = data.get("weight")
 
         if not patient_id:
             return jsonify({"error": "Patient ID is required"}), 400
@@ -431,10 +432,10 @@ def update_patient_profile():
         # **Update `patients` table (Gender, Age, Contact)**
         update_patient_query = """
         UPDATE patients 
-        SET gender = %s, age = %s, contact = %s 
+        SET gender = %s, age = %s, contact = %s, weight = %s 
         WHERE patientid = %s
         """
-        modify_data(update_patient_query, (gender, age, contact, patient_id))
+        modify_data(update_patient_query, (gender, age, contact, patient_id, weight))
 
         return jsonify({"message": "Profile updated successfully"}), 200
 
@@ -712,7 +713,8 @@ def get_patient_insights(patient_id):
         sql_profile = """
         SELECT 
             p.gender, 
-            p.age, 
+            p.age,
+            p.weight, 
             u.fullname 
         FROM patients p
         JOIN users u ON p.userid = u.userid
@@ -741,7 +743,7 @@ def get_patient_insights(patient_id):
             "fullname": profile.get("fullname", "Unknown"),
             "gender": profile.get("gender", "-"),
             "age": profile.get("age", "-"),
-            # "Weight": profile.get("Weight", "-"), 
+            "weight": profile.get("weight", "-"), 
             "respiration_rate": vitals.get("respiration_rate") if vitals else "-",
             "temperature": vitals.get("temperature") if vitals else "-",
             "ecg": vitals.get("ecg") if vitals else "-",
