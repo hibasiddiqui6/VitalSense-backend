@@ -576,7 +576,7 @@ def receive_sensor_data():
         sql_query = """
         SELECT patientid, smartshirtid 
         FROM smartshirt 
-        WHERE shirtstatus = 1 
+        WHERE shirtstatus = TRUE 
         LIMIT 1
         """
         result = fetch_data(sql_query)
