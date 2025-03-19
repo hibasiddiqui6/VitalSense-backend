@@ -4,6 +4,7 @@ import bcrypt  # For secure password hashing
 from db_utils import fetch_data, fetch_all_data, modify_data, get_db_connection, insert_data, fetch_latest_data  # Import database utility functions
 from datetime import datetime
 import os
+import threading
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -564,15 +565,13 @@ def delete_trusted_contact():
 def receive_sensor_data():
     try:
         data = request.json
-        ecg = data.get("ecg")
+        ecg_data = data.get("ecg", [])  # **ECG now a list**
         respiration = data.get("respiration")
         temperature = data.get("temperature")
 
-        # Input validation
-        if None in [ecg, respiration, temperature]:
-            return jsonify({"error": "All fields (ecg, respiration, temperature) are required."}), 400
+        if respiration is None or temperature is None:
+            return jsonify({"error": "All fields (ecg[], respiration, temperature) are required."}), 400
 
-        # Fetch active SmartShirt (ShirtStatus = 1 means connected)
         sql_query = """
         SELECT patientid, smartshirtid 
         FROM smartshirt 
@@ -587,35 +586,33 @@ def receive_sensor_data():
         patient_id = result["patientid"]
         smartshirt_id = result["smartshirtid"]
 
-        # Timestamp
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
-        # Sensor Data
-        sensor_data = {
-            "timestamp": timestamp,
-            "ecg": ecg,
-            "respiration": respiration,
-            "temperature": temperature,
-            "patientID": patient_id,
-            "smartshirtID": smartshirt_id
-        }
+        # **Store All ECG Readings in Firebase & MySQL**
+        for ecg in ecg_data:
+            sensor_data = {
+                "timestamp": timestamp,
+                "ecg": ecg,
+                "respiration": respiration,
+                "temperature": temperature,
+                "patientID": patient_id,
+                "smartshirtID": smartshirt_id
+            }
+            threading.Thread(target=insert_data, args=("health_vitals", sensor_data)).start()
+            
+            sql_insert = """
+            INSERT INTO health_vitals (timestamp, ecg, respiration_rate, temperature, patientid, smartshirtid) 
+            VALUES (%s, %s, %s, %s, %s, %s)
+            """
+            threading.Thread(target=modify_data, args=(sql_insert, 
+                (timestamp, ecg, respiration, temperature, patient_id, smartshirt_id))).start()
 
-        # Firebase (Real-time)
-        insert_data("health_vitals", sensor_data)
-
-        # MySQL (Permanent)
-        sql_insert = """
-        INSERT INTO health_vitals (timestamp, ecg, respiration_rate, temperature, patientid, smartshirtid) 
-        VALUES (%s, %s, %s, %s, %s, %s)
-        """
-        modify_data(sql_insert, (timestamp, ecg, respiration, temperature, patient_id, smartshirt_id))
-
-        return jsonify({"status": "success", "data": sensor_data}), 200
+        return jsonify({"status": "success", "data": "ECG batch inserted"}), 200
 
     except Exception as e:
         print(f"Error in /sensor API: {e}")
         return jsonify({"error": f"An error occurred: {e}"}), 500
-
+    
 @app.route('/get_sensor', methods=['GET'])
 def get_sensor_data():
     try:
