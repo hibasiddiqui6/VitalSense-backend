@@ -565,52 +565,33 @@ def delete_trusted_contact():
 def receive_sensor_data():
     try:
         data = request.json
-        ecg_data = data.get("ecg", [])  # **ECG now a list**
-        respiration = data.get("respiration")
-        temperature = data.get("temperature")
+        ecg = data.get("ecg", None)
+        respiration = data.get("respiration", None)
+        temperature = data.get("temperature", None)
 
-        if respiration is None or temperature is None:
-            return jsonify({"error": "All fields (ecg[], respiration, temperature) are required."}), 400
+        # **Get Patient & SmartShirt ID** (For now, assuming a static ID)
+        patient_id = "2c3d0ea6-6bb9-40c8-90c9-7c2b72b7a810"
+        smartshirt_id = "2"
 
-        sql_query = """
-        SELECT patientid, smartshirtid 
-        FROM smartshirt 
-        WHERE shirtstatus = TRUE 
-        LIMIT 1
-        """
-        result = fetch_data(sql_query)
-
-        if not result:
-            return jsonify({"error": "No active SmartShirt found."}), 404
-
-        patient_id = result["patientid"]
-        smartshirt_id = result["smartshirtid"]
-
+        # **Timestamp with Milliseconds**
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
-        # **Store All ECG Readings in Firebase & MySQL**
-        for ecg in ecg_data:
-            sensor_data = {
-                "timestamp": timestamp,
-                "ecg": ecg,
-                "respiration": respiration,
-                "temperature": temperature,
-                "patientID": patient_id,
-                "smartshirtID": smartshirt_id
-            }
-            threading.Thread(target=insert_data, args=("health_vitals", sensor_data)).start()
-            
-            sql_insert = """
-            INSERT INTO health_vitals (timestamp, ecg, respiration_rate, temperature, patientid, smartshirtid) 
-            VALUES (%s, %s, %s, %s, %s, %s)
-            """
-            threading.Thread(target=modify_data, args=(sql_insert, 
-                (timestamp, ecg, respiration, temperature, patient_id, smartshirt_id))).start()
+        # **Prepare data for Firestore**
+        sensor_data = {
+            "timestamp": timestamp,
+            "ecg": ecg,
+            "respiration": respiration,
+            "temperature": temperature,
+            "patientID": patient_id,
+            "smartshirtID": smartshirt_id
+        }
 
-        return jsonify({"status": "success", "data": "ECG batch inserted"}), 200
+        # **Insert into Firestore**
+        insert_data("health_vitals", sensor_data)
+
+        return jsonify({"status": "success", "data": sensor_data}), 200
 
     except Exception as e:
-        print(f"Error in /sensor API: {e}")
         return jsonify({"error": f"An error occurred: {e}"}), 500
     
 @app.route('/get_sensor', methods=['GET'])
