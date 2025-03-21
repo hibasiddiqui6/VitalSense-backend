@@ -4,7 +4,8 @@ import bcrypt  # For secure password hashing
 from db_utils import fetch_data, fetch_all_data, modify_data, get_db_connection, insert_data, fetch_latest_data  # Import database utility functions
 from datetime import datetime
 import os
-import threading
+from confluent_kafka import Producer
+import json
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -560,23 +561,37 @@ def delete_trusted_contact():
     except Exception as e:
         return jsonify({"error": f"An error occurred: {e}"}), 500
 
-#MySQL + Firestore
 @app.route('/sensor', methods=['POST'])
 def receive_sensor_data():
     try:
         data = request.json
-        ecg = data.get("ecg", None)
-        respiration = data.get("respiration", None)
-        temperature = data.get("temperature", None)
+        ecg = data.get("ecg")
+        respiration = data.get("respiration")
+        temperature = data.get("temperature")
 
-        # **Get Patient & SmartShirt ID** (For now, assuming a static ID)
-        patient_id = "2c3d0ea6-6bb9-40c8-90c9-7c2b72b7a810"
-        smartshirt_id = "2"
+        # Input validation
+        if None in [ecg, respiration, temperature]:
+            return jsonify({"error": "All fields (ecg, respiration, temperature) are required."}), 400
 
-        # **Timestamp with Milliseconds**
+        # Fetch active SmartShirt (ShirtStatus = 1 means connected)
+        sql_query = """
+        SELECT patientid, smartshirtid 
+        FROM smartshirt 
+        WHERE shirtstatus = 1 
+        LIMIT 1
+        """
+        result = fetch_data(sql_query)
+
+        if not result:
+            return jsonify({"error": "No active SmartShirt found."}), 404
+
+        patient_id = result["patientid"]
+        smartshirt_id = result["smartshirtid"]
+
+        # Timestamp
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
-        # **Prepare data for Firestore**
+        # Sensor Data
         sensor_data = {
             "timestamp": timestamp,
             "ecg": ecg,
@@ -586,14 +601,22 @@ def receive_sensor_data():
             "smartshirtID": smartshirt_id
         }
 
-        # **Insert into Firestore**
+        # Firebase (Real-time)
         insert_data("health_vitals", sensor_data)
+
+        # MySQL (Permanent)
+        sql_insert = """
+        INSERT INTO health_vitals (timestamp, ecg, respiration_rate, temperature, patientid, smartshirtid) 
+        VALUES (%s, %s, %s, %s, %s, %s)
+        """
+        modify_data(sql_insert, (timestamp, ecg, respiration, temperature, patient_id, smartshirt_id))
 
         return jsonify({"status": "success", "data": sensor_data}), 200
 
     except Exception as e:
+        print(f"Error in /sensor API: {e}")
         return jsonify({"error": f"An error occurred: {e}"}), 500
-    
+
 @app.route('/get_sensor', methods=['GET'])
 def get_sensor_data():
     try:

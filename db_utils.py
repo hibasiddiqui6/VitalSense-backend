@@ -1,3 +1,4 @@
+import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import firebase_admin
@@ -5,34 +6,28 @@ from firebase_admin import credentials, firestore
 
 # --------------------- PostgreSQL Connection ---------------------------
 
-# Database connection setup
+# Load database connection string from environment
+DATABASE_URL = os.getenv("DATABASE_URL")
+
 def get_db_connection():
     try:
-        connection = psycopg2.connect(
-            host="dpg-cvaavhin91rc7392d75g-a.oregon-postgres.render.com",  # Render PostgreSQL host
-            database="vitalsense_db",  # Database name
-            user="vitalsenseroot",
-            password="qnWmiYp7bIA7cw1MNN3O48yocAn4M0ZS",
-            port=5432
-        )
+        connection = psycopg2.connect(DATABASE_URL)
         return connection
     except Exception as e:
-        print(f"Error: Unable to connect to the database. {e}")
+        print(f"❌ Error: Unable to connect to the database. {e}")
         raise e
 
-
-# Function to execute SELECT queries (single row)
+# Execute SELECT query (single row)
 def fetch_data(query, params=None):
     db = None
     cursor = None
     try:
         db = get_db_connection()
-        cursor = db.cursor(cursor_factory=RealDictCursor)  # ✅ Correct for PostgreSQL
+        cursor = db.cursor(cursor_factory=RealDictCursor)
         cursor.execute(query, params or ())
-        result = cursor.fetchone()  # Fetch a single result
-        return result
+        return cursor.fetchone()
     except Exception as e:
-        print(f"Error executing SELECT query: {e}")
+        print(f"❌ Error executing SELECT query: {e}")
         return None
     finally:
         if cursor:
@@ -40,19 +35,17 @@ def fetch_data(query, params=None):
         if db:
             db.close()
 
-
-# Function to execute SELECT queries (all rows)
+# Execute SELECT query (all rows)
 def fetch_all_data(query, params=None):
     db = None
     cursor = None
     try:
         db = get_db_connection()
-        cursor = db.cursor(cursor_factory=RealDictCursor)  # ✅ Correct for PostgreSQL
+        cursor = db.cursor(cursor_factory=RealDictCursor)
         cursor.execute(query, params or ())
-        results = cursor.fetchall()  # Fetch all records
-        return results
+        return cursor.fetchall()
     except Exception as e:
-        print(f"Error executing SELECT query: {e}")
+        print(f"❌ Error executing SELECT ALL query: {e}")
         return []
     finally:
         if cursor:
@@ -60,8 +53,7 @@ def fetch_all_data(query, params=None):
         if db:
             db.close()
 
-
-# Function to execute INSERT, UPDATE, DELETE queries
+# Execute INSERT, UPDATE, DELETE
 def modify_data(query, params=None):
     db = None
     cursor = None
@@ -71,7 +63,7 @@ def modify_data(query, params=None):
         cursor.execute(query, params or ())
         db.commit()
     except Exception as e:
-        print(f"Error executing query: {e}")
+        print(f"❌ Error executing query: {e}")
         db.rollback()
         raise e
     finally:
@@ -82,15 +74,17 @@ def modify_data(query, params=None):
 
 # --------------------- Firebase Firestore ---------------------------
 
-# Initialize Firebase Admin
-cred = credentials.Certificate("/etc/secrets/firebase_credentials.json")
-firebase_admin.initialize_app(cred)
+# Load Firebase credential file path
+FIREBASE_CREDENTIALS_PATH = os.getenv("FIREBASE_CREDENTIALS")
+
+# Initialize Firebase App
+if not firebase_admin._apps:
+    cred = credentials.Certificate(FIREBASE_CREDENTIALS_PATH)
+    firebase_admin.initialize_app(cred)
 
 # Get Firestore DB instance
 db_firestore = firestore.client()
 
-
-# Function to insert data into Firestore
 def insert_data(collection, data):
     try:
         doc_ref = db_firestore.collection(collection).document()
@@ -98,11 +92,9 @@ def insert_data(collection, data):
         print(f"✅ Data inserted into {collection}: {data}")
         return doc_ref.id
     except Exception as e:
-        print(f"❌ Error inserting data: {e}")
+        print(f"❌ Error inserting into Firestore: {e}")
         return None
 
-
-# Function to fetch the latest document from Firestore
 def fetch_latest_data(collection, field, value):
     try:
         docs = (
@@ -116,5 +108,5 @@ def fetch_latest_data(collection, field, value):
             return doc.to_dict()
         return None
     except Exception as e:
-        print(f"❌ Error fetching data: {e}")
+        print(f"❌ Error fetching from Firestore: {e}")
         return None
