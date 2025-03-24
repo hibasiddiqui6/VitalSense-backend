@@ -12,6 +12,8 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 
 # Store received sensor data (temporary storage for testing)
 sensor_data = {}
+# In-memory cache to store latest ESP32 MAC and IP (for testing/demo)
+mac_ip_cache = {}
 
 @app.route('/')
 def home():
@@ -339,20 +341,33 @@ def get_smartshirts():
         return jsonify({"error": f"An error occurred: {e}"}), 500
     
 @app.route('/send_mac_to_app', methods=['POST'])
-def receive_mac_from_esp():
+def receive_mac():
     try:
         data = request.json
-        mac_address = data.get("mac_address")
+        mac = data.get("mac_address")
+        ip = data.get("ip_address")
 
-        if not mac_address:
-            return jsonify({"error": "MAC address is required"}), 400
+        if not mac or not ip:
+            return jsonify({"error": "Missing MAC or IP address"}), 400
 
-        print(f"Received MAC Address from ESP32: {mac_address}")
+        # Save to cache
+        mac_ip_cache["latest"] = {"mac_address": mac, "ip_address": ip}
 
-        return jsonify({"message": "MAC Address received successfully!"}), 200
-
+        print(f"Received MAC: {mac}, IP: {ip}")
+        return jsonify({"status": "saved"}), 200
     except Exception as e:
-        return jsonify({"error": f"An error occurred: {e}"}), 500
+        return jsonify({"error": str(e)}), 500
+    
+@app.route('/get_latest_mac_ip', methods=['GET'])
+def get_latest_mac_ip():
+    try:
+        latest = mac_ip_cache.get("latest")
+        if not latest:
+            return jsonify({"error": "No ESP32 MAC/IP available"}), 404
+
+        return jsonify(latest), 200
+    except Exception as e:
+        return jsonify({"error": f"Failed to fetch latest MAC/IP: {e}"}), 500
 
 @app.route('/get_patient_profile', methods=['GET'])
 def get_patient_profile():
@@ -573,7 +588,7 @@ def receive_sensor_data():
         if None in [ecg, respiration, temperature]:
             return jsonify({"error": "All fields (ecg, respiration, temperature) are required."}), 400
 
-        # Fetch active SmartShirt (ShirtStatus = 1 means connected)
+        # Fetch active SmartShirt (ShirtStatus = true means connected)
         sql_query = """
         SELECT patientid, smartshirtid 
         FROM smartshirt 
