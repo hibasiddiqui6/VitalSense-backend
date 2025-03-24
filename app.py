@@ -580,15 +580,18 @@ def delete_trusted_contact():
 def receive_sensor_data():
     try:
         data = request.json
+        print(f"[DEBUG] Received /sensor data: {data}")
+
         ecg = data.get("ecg")
         respiration = data.get("respiration")
         temperature = data.get("temperature")
 
         # Input validation
         if None in [ecg, respiration, temperature]:
+            print("[ERROR] Missing one or more required fields: ecg, respiration, temperature.")
             return jsonify({"error": "All fields (ecg, respiration, temperature) are required."}), 400
 
-        # Fetch active SmartShirt (ShirtStatus = true means connected)
+        # Fetch active SmartShirt
         sql_query = """
         SELECT patientid, smartshirtid 
         FROM smartshirt 
@@ -596,17 +599,17 @@ def receive_sensor_data():
         LIMIT 1
         """
         result = fetch_data(sql_query)
+        print(f"[DEBUG] SmartShirt query result: {result}")
 
         if not result:
+            print("[ERROR] No active SmartShirt found in database.")
             return jsonify({"error": "No active SmartShirt found."}), 404
 
         patient_id = result["patientid"]
         smartshirt_id = result["smartshirtid"]
 
-        # Timestamp
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
-        # Sensor Data
         sensor_data = {
             "timestamp": timestamp,
             "ecg": ecg,
@@ -616,39 +619,47 @@ def receive_sensor_data():
             "smartshirtID": smartshirt_id
         }
 
-        # Firebase (Real-time)
+        print(f"[DEBUG] Final sensor_data object: {sensor_data}")
+
+        # Firebase
         insert_data("health_vitals", sensor_data)
 
-        # MySQL (Permanent)
+        # MySQL
         sql_insert = """
         INSERT INTO health_vitals (timestamp, ecg, respiration_rate, temperature, patientid, smartshirtid) 
         VALUES (%s, %s, %s, %s, %s, %s)
         """
         modify_data(sql_insert, (timestamp, ecg, respiration, temperature, patient_id, smartshirt_id))
 
+        print("[SUCCESS] Sensor data inserted successfully.")
         return jsonify({"status": "success", "data": sensor_data}), 200
 
     except Exception as e:
-        print(f"Error in /sensor API: {e}")
+        print(f"[EXCEPTION] Error in /sensor API: {e}")
         return jsonify({"error": f"An error occurred: {e}"}), 500
 
 @app.route('/get_sensor', methods=['GET'])
 def get_sensor_data():
     try:
         patient_id = request.args.get("patient_id")
+        print(f"[DEBUG] /get_sensor request for patient_id: {patient_id}")
 
         if not patient_id:
+            print("[ERROR] Missing patient_id in query params.")
             return jsonify({"error": "Patient ID is required"}), 400
 
-        # **Fetch latest data from Firestore**
+        # Fetch from Firestore
         latest_data = fetch_latest_data("health_vitals", "patientID", patient_id)
+        print(f"[DEBUG] Retrieved latest data: {latest_data}")
 
         if not latest_data:
+            print(f"[WARN] No sensor data found for patient: {patient_id}")
             return jsonify({"error": "No sensor data found for this patient"}), 404
 
         return jsonify(latest_data), 200
 
     except Exception as e:
+        print(f"[EXCEPTION] Error in /get_sensor API: {e}")
         return jsonify({"error": f"An error occurred: {e}"}), 500
     
 # Specialist adds a patient by Patient ID (shortened UUID form)
