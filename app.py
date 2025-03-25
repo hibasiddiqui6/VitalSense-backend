@@ -656,18 +656,27 @@ def get_sensor_data():
         if not latest_data:
             print(f"[WARN] No sensor data found for patient: {patient_id}")
             return jsonify({"error": "No sensor data found for this patient"}), 404
+        
         # Freshness check: Only allow data from the last 5 minutes
         timestamp_str = latest_data.get("timestamp")
         if timestamp_str:
             try:
+                # Parse stored PKT timestamp
+                pakistan_tz = timezone("Asia/Karachi")
                 timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S.%f")
-                now = datetime.utcnow()
-                if now - timestamp > timedelta(minutes=5):
+                timestamp = pakistan_tz.localize(timestamp)
+
+                # Current time in PKT
+                now_pkt = datetime.now(pakistan_tz)
+
+                # Freshness validation
+                if now_pkt - timestamp > timedelta(minutes=5):
                     print(f"[INFO] Data is older than 5 minutes. Timestamp: {timestamp}")
                     return jsonify({"error": "No recent sensor data available"}), 404
+
             except Exception as parse_err:
                 print(f"[WARN] Failed to parse timestamp: {parse_err}")
-                
+
         return jsonify(latest_data), 200
 
     except Exception as e:
