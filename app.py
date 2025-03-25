@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import bcrypt  # For secure password hashing
-from db_utils import fetch_data, fetch_all_data, modify_data, get_db_connection, insert_data, fetch_latest_data  # Import database utility functions
+from db_utils import fetch_data, fetch_all_data, modify_data, get_db_connection, fetch_latest_data  # Import database utility functions
 from datetime import datetime, timedelta
 import os
 from confluent_kafka import Producer
