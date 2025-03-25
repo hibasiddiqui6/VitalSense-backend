@@ -5,7 +5,7 @@ from db_utils import fetch_data, fetch_all_data, modify_data, get_db_connection,
 from datetime import datetime, timedelta
 import os
 from confluent_kafka import Producer
-import json
+from pytz import timezone
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -608,7 +608,8 @@ def receive_sensor_data():
         patient_id = result["patientid"]
         smartshirt_id = result["smartshirtid"]
 
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+        pakistan_time = datetime.now(timezone('Asia/Karachi'))
+        timestamp = pakistan_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
         sensor_data = {
             "timestamp": timestamp,
