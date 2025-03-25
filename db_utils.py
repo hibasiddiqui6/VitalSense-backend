@@ -1,8 +1,6 @@
 import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
-import firebase_admin
-from firebase_admin import credentials, firestore
 
 # --------------------- PostgreSQL Connection ---------------------------
 
@@ -72,41 +70,11 @@ def modify_data(query, params=None):
         if db:
             db.close()
 
-# --------------------- Firebase Firestore ---------------------------
-
-# Load Firebase credential file path
-FIREBASE_CREDENTIALS_PATH = os.getenv("FIREBASE_CREDENTIALS")
-
-# Initialize Firebase App
-if not firebase_admin._apps:
-    cred = credentials.Certificate(FIREBASE_CREDENTIALS_PATH)
-    firebase_admin.initialize_app(cred)
-
-# Get Firestore DB instance
-db_firestore = firestore.client()
-
-def insert_data(collection, data):
-    try:
-        doc_ref = db_firestore.collection(collection).document()
-        doc_ref.set(data)
-        print(f"✅ Data inserted into {collection}: {data}")
-        return doc_ref.id
-    except Exception as e:
-        print(f"❌ Error inserting into Firestore: {e}")
-        return None
-
-def fetch_latest_data(collection, field, value):
-    try:
-        docs = (
-            db_firestore.collection(collection)
-            .where(field, "==", value)
-            .order_by("timestamp", direction=firestore.Query.DESCENDING)
-            .limit(1)
-            .stream()
-        )
-        for doc in docs:
-            return doc.to_dict()
-        return None
-    except Exception as e:
-        print(f"❌ Error fetching from Firestore: {e}")
-        return None
+def fetch_latest_data(_collection, field, value):
+    query = """
+        SELECT * FROM health_vitals
+        WHERE patientid = %s
+        ORDER BY timestamp DESC
+        LIMIT 1
+    """
+    return fetch_data(query, (value,))

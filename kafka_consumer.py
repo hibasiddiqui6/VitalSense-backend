@@ -3,7 +3,7 @@ import threading
 from confluent_kafka import Consumer
 import json
 from datetime import datetime
-from db_utils import insert_data, modify_data, fetch_data
+from db_utils import modify_data, fetch_data
 from pytz import timezone
 
 app = Flask(__name__)  # Fake web server to bind a port on Render
@@ -53,17 +53,6 @@ def process_message(message):
         pakistan_time = datetime.now(timezone("Asia/Karachi"))
         timestamp = pakistan_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
-        sensor_data = {
-            "timestamp": timestamp,
-            "ecg": ecg,
-            "respiration": respiration,
-            "temperature": temperature,
-            "patientID": patient_id,
-            "smartshirtID": smartshirt_id
-        }
-
-        insert_data("health_vitals", sensor_data)
-
         sql_insert = """
         INSERT INTO health_vitals (timestamp, ecg, respiration_rate, temperature, patientid, smartshirtid) 
         VALUES (%s, %s, %s, %s, %s, %s)
@@ -77,6 +66,7 @@ def process_message(message):
 
 def consume_from_kafka():
     config = read_config()
+    print("[DEBUG] Kafka Config:", config)
     config["group.id"] = "sensor-consumer-group"
     config["auto.offset.reset"] = "earliest"
 
@@ -88,6 +78,9 @@ def consume_from_kafka():
     try:
         while True:
             msg = consumer.poll(1.0)
+            if msg is None:
+                print("⏳ No message received in this cycle...")
+
             if msg is not None and msg.error() is None:
                 key = msg.key().decode("utf-8") if msg.key() else "N/A"
                 value = msg.value().decode("utf-8")

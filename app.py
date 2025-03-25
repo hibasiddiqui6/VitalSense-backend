@@ -576,68 +576,68 @@ def delete_trusted_contact():
     except Exception as e:
         return jsonify({"error": f"An error occurred: {e}"}), 500
 
-@app.route('/sensor', methods=['POST'])
-def receive_sensor_data():
-    try:
-        data = request.json
-        print(f"[DEBUG] Received /sensor data: {data}")
+# @app.route('/sensor', methods=['POST'])
+# def receive_sensor_data():
+#     try:
+#         data = request.json
+#         print(f"[DEBUG] Received /sensor data: {data}")
 
-        ecg = data.get("ecg")
-        respiration = data.get("respiration")
-        temperature = data.get("temperature")
+#         ecg = data.get("ecg")
+#         respiration = data.get("respiration")
+#         temperature = data.get("temperature")
 
-        # Input validation
-        if None in [ecg, respiration, temperature]:
-            print("[ERROR] Missing one or more required fields: ecg, respiration, temperature.")
-            return jsonify({"error": "All fields (ecg, respiration, temperature) are required."}), 400
+#         # Input validation
+#         if None in [ecg, respiration, temperature]:
+#             print("[ERROR] Missing one or more required fields: ecg, respiration, temperature.")
+#             return jsonify({"error": "All fields (ecg, respiration, temperature) are required."}), 400
 
-        # Fetch active SmartShirt
-        sql_query = """
-        SELECT patientid, smartshirtid 
-        FROM smartshirt 
-        WHERE shirtstatus = TRUE
-        LIMIT 1
-        """
-        result = fetch_data(sql_query)
-        print(f"[DEBUG] SmartShirt query result: {result}")
+#         # Fetch active SmartShirt
+#         sql_query = """
+#         SELECT patientid, smartshirtid 
+#         FROM smartshirt 
+#         WHERE shirtstatus = TRUE
+#         LIMIT 1
+#         """
+#         result = fetch_data(sql_query)
+#         print(f"[DEBUG] SmartShirt query result: {result}")
 
-        if not result:
-            print("[ERROR] No active SmartShirt found in database.")
-            return jsonify({"error": "No active SmartShirt found."}), 404
+#         if not result:
+#             print("[ERROR] No active SmartShirt found in database.")
+#             return jsonify({"error": "No active SmartShirt found."}), 404
 
-        patient_id = result["patientid"]
-        smartshirt_id = result["smartshirtid"]
+#         patient_id = result["patientid"]
+#         smartshirt_id = result["smartshirtid"]
 
-        pakistan_time = datetime.now(timezone('Asia/Karachi'))
-        timestamp = pakistan_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+#         pakistan_time = datetime.now(timezone('Asia/Karachi'))
+#         timestamp = pakistan_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
-        sensor_data = {
-            "timestamp": timestamp,
-            "ecg": ecg,
-            "respiration": respiration,
-            "temperature": temperature,
-            "patientID": patient_id,
-            "smartshirtID": smartshirt_id
-        }
+#         sensor_data = {
+#             "timestamp": timestamp,
+#             "ecg": ecg,
+#             "respiration": respiration,
+#             "temperature": temperature,
+#             "patientID": patient_id,
+#             "smartshirtID": smartshirt_id
+#         }
 
-        print(f"[DEBUG] Final sensor_data object: {sensor_data}")
+#         print(f"[DEBUG] Final sensor_data object: {sensor_data}")
 
-        # Firebase
-        insert_data("health_vitals", sensor_data)
+#         # Firebase
+#         insert_data("health_vitals", sensor_data)
 
-        # MySQL
-        sql_insert = """
-        INSERT INTO health_vitals (timestamp, ecg, respiration_rate, temperature, patientid, smartshirtid) 
-        VALUES (%s, %s, %s, %s, %s, %s)
-        """
-        modify_data(sql_insert, (timestamp, ecg, respiration, temperature, patient_id, smartshirt_id))
+#         # MySQL
+#         sql_insert = """
+#         INSERT INTO health_vitals (timestamp, ecg, respiration_rate, temperature, patientid, smartshirtid) 
+#         VALUES (%s, %s, %s, %s, %s, %s)
+#         """
+#         modify_data(sql_insert, (timestamp, ecg, respiration, temperature, patient_id, smartshirt_id))
 
-        print("[SUCCESS] Sensor data inserted successfully.")
-        return jsonify({"status": "success", "data": sensor_data}), 200
+#         print("[SUCCESS] Sensor data inserted successfully.")
+#         return jsonify({"status": "success", "data": sensor_data}), 200
 
-    except Exception as e:
-        print(f"[EXCEPTION] Error in /sensor API: {e}")
-        return jsonify({"error": f"An error occurred: {e}"}), 500
+#     except Exception as e:
+#         print(f"[EXCEPTION] Error in /sensor API: {e}")
+#         return jsonify({"error": f"An error occurred: {e}"}), 500
 
 @app.route('/get_sensor', methods=['GET'])
 def get_sensor_data():
