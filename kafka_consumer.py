@@ -34,6 +34,19 @@ def process_message(message):
         if None in [ecg, respiration, temperature]:
             print("⚠️ Invalid data received, skipping...")
             return
+        
+        msg_time_str = data.get("timestamp")
+        if msg_time_str:
+            try:
+                msg_time = datetime.fromisoformat(msg_time_str.replace("Z", "+00:00"))
+                now = datetime.now(timezone("UTC"))
+                age = (now - msg_time).total_seconds()
+
+                if age > 10:  # allow max 10 sec delay
+                    print(f"⚠️ Skipping old/stale message (age: {age} sec):", data)
+                    return
+            except Exception as e:
+                print(f"❌ Error parsing timestamp: {e}")
 
         sql_query = """
         SELECT patientid, smartshirtid 
@@ -68,7 +81,9 @@ def consume_from_kafka():
     config = read_config()
     print("[DEBUG] Kafka Config:", config)
     config["group.id"] = "sensor-consumer-group"
-    config["auto.offset.reset"] = "earliest"
+    config["auto.offset.reset"] = "latest"
+    config["enable.auto.commit"] = True
+    config["auto.commit.interval.ms"] = 5000  # 5 seconds is fine
 
     consumer = Consumer(config)
     consumer.subscribe(["sensor-data"])
