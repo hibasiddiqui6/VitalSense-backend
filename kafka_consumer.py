@@ -5,14 +5,13 @@ import json
 from datetime import datetime
 from db_utils import modify_data, fetch_data
 from pytz import timezone
+import time
 
 app = Flask(__name__)  # Fake web server to bind a port on Render
 
 @app.route("/")
 def home():
     return "✅ Kafka Consumer is running!"
-
-# --- Existing code moved into functions below ---
 
 def read_config():
     config = {}
@@ -34,7 +33,8 @@ def process_message(message):
         if None in [ecg, respiration, temperature]:
             print("⚠️ Invalid data received, skipping...")
             return
-        
+
+        # Skip stale messages
         msg_time_str = data.get("timestamp")
         if msg_time_str:
             try:
@@ -42,8 +42,8 @@ def process_message(message):
                 now = datetime.now(timezone("UTC"))
                 age = (now - msg_time).total_seconds()
 
-                if age > 10:  # allow max 10 sec delay
-                    print(f"⚠️ Skipping old/stale message (age: {age} sec):", data)
+                if age > 10:
+                    print(f"⚠️ Skipping old/stale message (age: {age:.2f} sec):", data)
                     return
             except Exception as e:
                 print(f"❌ Error parsing timestamp: {e}")
@@ -63,6 +63,7 @@ def process_message(message):
         patient_id = result["patientid"]
         smartshirt_id = result["smartshirtid"]
 
+        # Store timestamp in Pakistani time
         pakistan_time = datetime.now(timezone("Asia/Karachi"))
         timestamp = pakistan_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
@@ -79,11 +80,10 @@ def process_message(message):
 
 def consume_from_kafka():
     config = read_config()
-    print("[DEBUG] Kafka Config:", config)
-    config["group.id"] = "sensor-consumer-group"
+    config["group.id"] = f"sensor-consumer-{int(time.time())}"  # Unique group to skip old offsets
     config["auto.offset.reset"] = "latest"
     config["enable.auto.commit"] = True
-    config["auto.commit.interval.ms"] = 5000  # 5 seconds is fine
+    config["auto.commit.interval.ms"] = 5000
 
     consumer = Consumer(config)
     consumer.subscribe(["sensor-data"])
@@ -95,8 +95,9 @@ def consume_from_kafka():
             msg = consumer.poll(1.0)
             if msg is None:
                 print("⏳ No message received in this cycle...")
+                continue
 
-            if msg is not None and msg.error() is None:
+            if msg and msg.error() is None:
                 key = msg.key().decode("utf-8") if msg.key() else "N/A"
                 value = msg.value().decode("utf-8")
                 print(f"📩 Received: {value}")
@@ -106,7 +107,6 @@ def consume_from_kafka():
     finally:
         consumer.close()
 
-# --- Start Kafka in thread, and web server for Render ---
 if __name__ == "__main__":
     threading.Thread(target=consume_from_kafka).start()
     app.run(host="0.0.0.0", port=10000)
