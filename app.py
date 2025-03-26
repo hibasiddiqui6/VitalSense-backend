@@ -657,7 +657,12 @@ def get_sensor_data():
         # Freshness check using already-localized datetime
         timestamp = latest_data.get("timestamp")
         if isinstance(timestamp, datetime):
-            now_pkt = datetime.now(timezone("Asia/Karachi"))
+            # Localize naive timestamp
+            pakistan_tz = timezone("Asia/Karachi")
+            if timestamp.tzinfo is None:
+                timestamp = pakistan_tz.localize(timestamp)
+
+            now_pkt = datetime.now(pakistan_tz)
             if now_pkt - timestamp > timedelta(minutes=5):
                 print(f"[INFO] Data is older than 5 minutes. Timestamp: {timestamp}")
                 return jsonify({"error": "No recent sensor data available"}), 404
