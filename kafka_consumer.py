@@ -42,7 +42,7 @@ def process_message(message):
                 now = datetime.now(timezone("UTC"))
                 age = (now - msg_time).total_seconds()
 
-                if age > 10:
+                if age > 150:
                     print(f"⚠️ Skipping old/stale message (age: {age:.2f} sec):", data)
                     return
             except Exception as e:
