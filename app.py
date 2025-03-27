@@ -138,89 +138,99 @@ def login_specialist():
         print(f"Error during specialist login: {e}")
         return jsonify({"error": "An error occurred, please try again later."}), 500
 
-#Only MySQL
-# @app.route('/sensor', methods=['POST'])
-# def receive_sensor_data():
-#     global sensor_data
-#     try:
-#         data = request.json
-#         ecg = data.get("ecg", None)
-#         respiration = data.get("respiration", None)
-#         temperature = data.get("temperature", None)
+@app.route('/sensor', methods=['POST'])
+def receive_sensor_data():
+    global sensor_data
+    try:
+        data = request.json
+        ecg = data.get("ecg")
+        respiration = data.get("respiration")
+        temperature = data.get("temperature")
+        timestamp = data.get("timestamp")
 
-#         # **Find Patient ID and SmartShirt ID for this session**
-#         sql_query = """
-#         SELECT smartshirt.patientID, smartshirt.smartshirtID 
-#         FROM smartshirt 
-#         JOIN patients ON smartshirt.patientID = patients.PatientID 
-#         LIMIT 1
-#         """
-#         result = fetch_data(sql_query)
+        if None in [ecg, respiration, temperature, timestamp]:
+            return jsonify({"error": "Missing sensor fields"}), 400
 
-#         if not result:
-#             return jsonify({"error": "No SmartShirt is linked to a patient."}), 404
+        # Cache smartshirt-patient ID once globally
+        if not hasattr(app, "linked_ids"):
+            query = """
+                SELECT smartshirt.patientID, smartshirt.smartshirtID 
+                FROM smartshirt 
+                JOIN patients ON smartshirt.patientID = patients.PatientID 
+                WHERE shirtstatus = TRUE
+                LIMIT 1
+            """
+            result = fetch_data(query)
+            if not result:
+                return jsonify({"error": "No active SmartShirt linked to a patient"}), 404
+            app.linked_ids = {
+                "patient_id": result["patientID"],
+                "smartshirt_id": result["smartshirtID"]
+            }
 
-#         patient_id = result["patientID"]
-#         smartshirt_id = result["smartshirtID"]
+        ids = app.linked_ids
 
-#         # **Format timestamp with milliseconds**
-#         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]  
+        # Convert UTC timestamp to PKT before storing
+        utc_time = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        pkt_time = utc_time.astimezone(timezone("Asia/Karachi"))
+        formatted_pkt = pkt_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
-#         # **Store latest data in memory for real-time access**
-#         sensor_data = {
-#             "ecg": ecg,
-#             "respiration": respiration,
-#             "temperature": temperature,
-#             "timestamp": timestamp
-#         }
+        # Store latest data in memory (optional real-time fallback)
+        sensor_data = {
+            "ecg": ecg,
+            "respiration": respiration,
+            "temperature": temperature,
+            "timestamp": formatted_pkt
+        }
 
-#         print(f"Received Data for Patient {patient_id}: {sensor_data}")
+        print(f"✅ Received Data for Patient {ids['patient_id']}: {sensor_data}")
 
-#         # **Save Data into `health_vitals` Table**
-#         sql_insert = """
-#         INSERT INTO health_vitals (timestamp, ecg, respiration_rate, temperature, patientID, smartshirtID) 
-#         VALUES (%s, %s, %s, %s, %s, %s)
-#         """
-#         modify_data(sql_insert, (timestamp, ecg, respiration, temperature, patient_id, smartshirt_id))
+        # Save to DB
+        sql_insert = """
+            INSERT INTO health_vitals (timestamp, ecg, respiration_rate, temperature, patientID, smartshirtID) 
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """
+        modify_data(sql_insert, (formatted_pkt, ecg, respiration, temperature, ids["patient_id"], ids["smartshirt_id"]))
 
-#         return jsonify({"status": "success", "data": sensor_data}), 200
+        return jsonify({"status": "success", "data": sensor_data}), 200
 
-#     except Exception as e:
-#         return jsonify({"error": f"An error occurred: {e}"}), 500
+    except Exception as e:
+        print(f"[EXCEPTION] /sensor error: {e}")
+        return jsonify({"error": f"An error occurred: {e}"}), 500
 
-# @app.route('/get_sensor', methods=['GET'])
-# def get_sensor_data():
-#     try:
-#         patient_id = request.args.get("patient_id")
-#         print(f"🟢 Received patient_id: {patient_id}")  # Debugging output
+@app.route('/get_sensor', methods=['GET'])
+def get_sensor_data():
+    try:
+        patient_id = request.args.get("patient_id")
+        print(f"[DEBUG] /get_sensor request for patient_id: {patient_id}")
 
-#         if not patient_id:
-#             return jsonify({"error": "Patient ID is required"}), 400
+        if not patient_id:
+            return jsonify({"error": "Patient ID is required"}), 400
 
-#         # **Fetch latest sensor data from `health_vitals` for the given patient**
-#         sql_query = """
-#         SELECT timestamp, ecg, respiration_rate, temperature 
-#         FROM health_vitals 
-#         WHERE patientID = %s 
-#         ORDER BY timestamp DESC 
-#         LIMIT 1
-#         """
-#         latest_data = fetch_data(sql_query, (patient_id,))
+        latest_data = fetch_latest_data("health_vitals", "patientID", patient_id)
+        print(f"[DEBUG] Retrieved latest data: {latest_data}")
 
-#         if not latest_data:
-#             return jsonify({"error": "No sensor data found for this patient"}), 404
-        
-#         # **Check if the record is older than 10 seconds**
-#         current_time = datetime.now()
-#         record_time = latest_data['timestamp']
+        if not latest_data:
+            return jsonify({"error": "No sensor data found for this patient"}), 404
 
-#         if (current_time - record_time).total_seconds() > 10:
-#             return jsonify({"error": "Sensor data is outdated"}), 408  # HTTP 408: Request Timeout
+        # Freshness check using already-localized datetime
+        timestamp = latest_data.get("timestamp")
+        if isinstance(timestamp, datetime):
+            # Localize naive timestamp
+            pakistan_tz = timezone("Asia/Karachi")
+            if timestamp.tzinfo is None:
+                timestamp = pakistan_tz.localize(timestamp)
 
-#         return jsonify(latest_data), 200
+            now_pkt = datetime.now(pakistan_tz)
+            if now_pkt - timestamp > timedelta(minutes=5):
+                print(f"[INFO] Data is older than 5 minutes. Timestamp: {timestamp}")
+                return jsonify({"error": "No recent sensor data available"}), 404
 
-#     except Exception as e:
-#         return jsonify({"error": f"An error occurred: {e}"}), 500
+        return jsonify(latest_data), 200
+
+    except Exception as e:
+        print(f"[EXCEPTION] Error in /get_sensor API: {e}")
+        return jsonify({"error": f"An error occurred: {e}"}), 500
 
 @app.route('/get_patient_id', methods=['GET'])
 def get_patient_id():
@@ -574,103 +584,6 @@ def delete_trusted_contact():
 
         return jsonify({"message": "Contact deleted successfully"}), 200
     except Exception as e:
-        return jsonify({"error": f"An error occurred: {e}"}), 500
-
-# @app.route('/sensor', methods=['POST'])
-# def receive_sensor_data():
-#     try:
-#         data = request.json
-#         print(f"[DEBUG] Received /sensor data: {data}")
-
-#         ecg = data.get("ecg")
-#         respiration = data.get("respiration")
-#         temperature = data.get("temperature")
-
-#         # Input validation
-#         if None in [ecg, respiration, temperature]:
-#             print("[ERROR] Missing one or more required fields: ecg, respiration, temperature.")
-#             return jsonify({"error": "All fields (ecg, respiration, temperature) are required."}), 400
-
-#         # Fetch active SmartShirt
-#         sql_query = """
-#         SELECT patientid, smartshirtid 
-#         FROM smartshirt 
-#         WHERE shirtstatus = TRUE
-#         LIMIT 1
-#         """
-#         result = fetch_data(sql_query)
-#         print(f"[DEBUG] SmartShirt query result: {result}")
-
-#         if not result:
-#             print("[ERROR] No active SmartShirt found in database.")
-#             return jsonify({"error": "No active SmartShirt found."}), 404
-
-#         patient_id = result["patientid"]
-#         smartshirt_id = result["smartshirtid"]
-
-#         pakistan_time = datetime.now(timezone('Asia/Karachi'))
-#         timestamp = pakistan_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
-
-#         sensor_data = {
-#             "timestamp": timestamp,
-#             "ecg": ecg,
-#             "respiration": respiration,
-#             "temperature": temperature,
-#             "patientID": patient_id,
-#             "smartshirtID": smartshirt_id
-#         }
-
-#         print(f"[DEBUG] Final sensor_data object: {sensor_data}")
-
-#         # Firebase
-#         insert_data("health_vitals", sensor_data)
-
-#         # MySQL
-#         sql_insert = """
-#         INSERT INTO health_vitals (timestamp, ecg, respiration_rate, temperature, patientid, smartshirtid) 
-#         VALUES (%s, %s, %s, %s, %s, %s)
-#         """
-#         modify_data(sql_insert, (timestamp, ecg, respiration, temperature, patient_id, smartshirt_id))
-
-#         print("[SUCCESS] Sensor data inserted successfully.")
-#         return jsonify({"status": "success", "data": sensor_data}), 200
-
-#     except Exception as e:
-#         print(f"[EXCEPTION] Error in /sensor API: {e}")
-#         return jsonify({"error": f"An error occurred: {e}"}), 500
-
-@app.route('/get_sensor', methods=['GET'])
-def get_sensor_data():
-    try:
-        patient_id = request.args.get("patient_id")
-        print(f"[DEBUG] /get_sensor request for patient_id: {patient_id}")
-
-        if not patient_id:
-            return jsonify({"error": "Patient ID is required"}), 400
-
-        latest_data = fetch_latest_data("health_vitals", "patientID", patient_id)
-        print(f"[DEBUG] Retrieved latest data: {latest_data}")
-
-        if not latest_data:
-            return jsonify({"error": "No sensor data found for this patient"}), 404
-
-        # Freshness check using already-localized datetime
-        timestamp = latest_data.get("timestamp")
-        if isinstance(timestamp, datetime):
-            # Localize naive timestamp
-            pakistan_tz = timezone("Asia/Karachi")
-            if timestamp.tzinfo is None:
-                timestamp = pakistan_tz.localize(timestamp)
-
-            now_pkt = datetime.now(pakistan_tz)
-            if now_pkt - timestamp > timedelta(minutes=5):
-                print(f"[INFO] Data is older than 5 minutes. Timestamp: {timestamp}")
-                return jsonify({"error": "No recent sensor data available"}), 404
-
-        return jsonify(latest_data), 200
-
-    except Exception as e:
-        print(f"[EXCEPTION] Error in /get_sensor API: {e}")
         return jsonify({"error": f"An error occurred: {e}"}), 500
     
 # Specialist adds a patient by Patient ID (shortened UUID form)
