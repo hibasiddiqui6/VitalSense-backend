@@ -164,8 +164,8 @@ def receive_sensor_data():
             if not result:
                 return jsonify({"error": "No active SmartShirt linked to a patient"}), 404
             app.linked_ids = {
-                "patient_id": result["patientID"],
-                "smartshirt_id": result["smartshirtID"]
+                "patient_id": result["patientid"],
+                "smartshirt_id": result["smartshirtid"]
             }
 
         ids = app.linked_ids
