@@ -4,8 +4,8 @@ import bcrypt  # For secure password hashing
 from db_utils import fetch_data, fetch_all_data, modify_data, get_db_connection, fetch_latest_data  # Import database utility functions
 from datetime import datetime, timedelta
 import os
-from confluent_kafka import Producer
 from pytz import timezone
+import threading
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -138,6 +138,16 @@ def login_specialist():
         print(f"Error during specialist login: {e}")
         return jsonify({"error": "An error occurred, please try again later."}), 500
 
+def insert_sensor_data(data, ids):
+    sql_insert = """
+        INSERT INTO health_vitals (timestamp, ecg, respiration_rate, temperature, patientID, smartshirtID) 
+        VALUES (%s, %s, %s, %s, %s, %s)
+    """
+    modify_data(sql_insert, (
+        data["timestamp"], data["ecg"], data["respiration"],
+        data["temperature"], ids["patient_id"], ids["smartshirt_id"]
+    ))
+
 @app.route('/sensor', methods=['POST'])
 def receive_sensor_data():
     global sensor_data
@@ -151,7 +161,6 @@ def receive_sensor_data():
         if None in [ecg, respiration, temperature, timestamp]:
             return jsonify({"error": "Missing sensor fields"}), 400
 
-        # Cache smartshirt-patient ID once globally
         if not hasattr(app, "linked_ids"):
             query = """
                 SELECT smartshirt.patientID, smartshirt.smartshirtID 
@@ -170,12 +179,10 @@ def receive_sensor_data():
 
         ids = app.linked_ids
 
-        # Convert UTC timestamp to PKT before storing
         utc_time = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
         pkt_time = utc_time.astimezone(timezone("Asia/Karachi"))
         formatted_pkt = pkt_time.strftime("%Y-%m-%d %H:%M:%S.%f")
 
-        # Store latest data in memory (optional real-time fallback)
         sensor_data = {
             "ecg": ecg,
             "respiration": respiration,
@@ -185,12 +192,8 @@ def receive_sensor_data():
 
         print(f"[{datetime.now()}] ✅ Received Data for Patient {ids['patient_id']}: {sensor_data}")
 
-        # Save to DB
-        sql_insert = """
-            INSERT INTO health_vitals (timestamp, ecg, respiration_rate, temperature, patientID, smartshirtID) 
-            VALUES (%s, %s, %s, %s, %s, %s)
-        """
-        modify_data(sql_insert, (formatted_pkt, ecg, respiration, temperature, ids["patient_id"], ids["smartshirt_id"]))
+        # Async insert
+        threading.Thread(target=insert_sensor_data, args=(sensor_data, ids)).start()
 
         return jsonify({"status": "success", "data": sensor_data}), 200
 
@@ -230,6 +233,37 @@ def get_sensor_data():
 
     except Exception as e:
         print(f"[EXCEPTION] Error in /get_sensor API: {e}")
+        return jsonify({"error": f"An error occurred: {e}"}), 500
+
+@app.route('/get_sensor_stream', methods=['GET'])
+def get_sensor_stream():
+    try:
+        patient_id = request.args.get("patient_id")
+        limit = int(request.args.get("limit", 100))  # How many recent readings to fetch
+
+        if not patient_id:
+            return jsonify({"error": "Patient ID is required"}), 400
+
+        query = """
+            SELECT timestamp, ecg FROM health_vitals
+            WHERE patientID = %s
+            ORDER BY timestamp DESC
+            LIMIT %s
+        """
+        rows = fetch_all_data(query, (patient_id, limit))
+
+        # Reverse for ascending order (oldest to newest)
+        rows = rows[::-1]
+
+        # Format timestamps to string (optional, if datetime objects)
+        for row in rows:
+            if isinstance(row["timestamp"], datetime):
+                row["timestamp"] = row["timestamp"].strftime("%Y-%m-%d %H:%M:%S.%f")
+
+        return jsonify(rows), 200
+
+    except Exception as e:
+        print(f"[EXCEPTION] /get_sensor_stream error: {e}")
         return jsonify({"error": f"An error occurred: {e}"}), 500
 
 @app.route('/get_patient_id', methods=['GET'])
