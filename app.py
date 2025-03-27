@@ -239,7 +239,7 @@ def get_sensor_data():
 def get_sensor_stream():
     try:
         patient_id = request.args.get("patient_id")
-        limit = int(request.args.get("limit", 100))  # How many recent readings to fetch
+        limit = int(request.args.get("limit", 100))
 
         if not patient_id:
             return jsonify({"error": "Patient ID is required"}), 400
@@ -247,15 +247,13 @@ def get_sensor_stream():
         query = """
             SELECT timestamp, ecg FROM health_vitals
             WHERE patientID = %s
+            AND timestamp > NOW() - INTERVAL '10 seconds'
             ORDER BY timestamp DESC
             LIMIT %s
         """
         rows = fetch_all_data(query, (patient_id, limit))
+        rows = rows[::-1]  # Oldest to newest
 
-        # Reverse for ascending order (oldest to newest)
-        rows = rows[::-1]
-
-        # Format timestamps to string (optional, if datetime objects)
         for row in rows:
             if isinstance(row["timestamp"], datetime):
                 row["timestamp"] = row["timestamp"].strftime("%Y-%m-%d %H:%M:%S.%f")
