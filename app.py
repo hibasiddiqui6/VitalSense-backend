@@ -173,7 +173,7 @@ def receive_sensor_data():
         # Convert UTC timestamp to PKT before storing
         utc_time = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
         pkt_time = utc_time.astimezone(timezone("Asia/Karachi"))
-        formatted_pkt = pkt_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+        formatted_pkt = pkt_time.strftime("%Y-%m-%d %H:%M:%S.%f")
 
         # Store latest data in memory (optional real-time fallback)
         sensor_data = {
@@ -183,7 +183,7 @@ def receive_sensor_data():
             "timestamp": formatted_pkt
         }
 
-        print(f"✅ Received Data for Patient {ids['patient_id']}: {sensor_data}")
+        print(f"[{datetime.now()}] ✅ Received Data for Patient {ids['patient_id']}: {sensor_data}")
 
         # Save to DB
         sql_insert = """
@@ -717,4 +717,4 @@ def ping():
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000)) 
-    app.run(host='0.0.0.0', port=port, debug=False)
+    app.run(host='0.0.0.0', port=port, debug=False, threaded=True)

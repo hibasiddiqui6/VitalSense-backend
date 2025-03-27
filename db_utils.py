@@ -70,11 +70,11 @@ def modify_data(query, params=None):
         if db:
             db.close()
 
-def fetch_latest_data(_collection, field, value):
-    query = """
-        SELECT * FROM health_vitals
-        WHERE patientid = %s
-        ORDER BY timestamp DESC
+def fetch_latest_data(table, column, value):
+    sql = f"""
+        SELECT * FROM {table}
+        WHERE {column} = %s
+        ORDER BY timestamp DESC, id DESC
         LIMIT 1
     """
-    return fetch_data(query, (value,))
+    return fetch_data(sql, (value,))
