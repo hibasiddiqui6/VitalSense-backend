@@ -747,6 +747,15 @@ def get_patient_insights(patient_id):
 def ping():
     return jsonify({"status": "online"}), 200
 
+@app.before_request
+def log_start():
+    print(f"[{threading.current_thread().name}] ▶️ {datetime.now()} {request.method} {request.path}")
+
+@app.after_request
+def log_end(response):
+    print(f"[{threading.current_thread().name}] ✅ {datetime.now()} Done: {request.method} {request.path}")
+    return response
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000)) 
     app.run(host='0.0.0.0', port=port, debug=False, threaded=True)
