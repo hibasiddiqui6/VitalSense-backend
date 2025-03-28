@@ -263,6 +263,7 @@ def ecg_sse():
 
     return Response(stream_with_context(generate()), mimetype='text/event-stream')
 
+
 @app.route('/get_patient_id', methods=['GET'])
 def get_patient_id():
     """Fetches the patient ID and role using the email address."""
