@@ -243,18 +243,22 @@ def ecg_sse():
         return "Patient ID is required", 400
 
     def generate():
+        last_id = None
         while True:
             query = """
-                SELECT ecg FROM health_vitals
+                SELECT id, ecg FROM health_vitals
                 WHERE patientID = %s
                 ORDER BY timestamp DESC
                 LIMIT 1
             """
             result = fetch_data(query, (patient_id,))
             if result:
+                current_id = result["id"]
                 ecg = result["ecg"]
-                yield f"data: {ecg}\n\n"
-            time.sleep(0.2)
+                if current_id != last_id:
+                    last_id = current_id
+                    yield f"data: {ecg}\n\n"
+            time.sleep(0.05)  # try 50ms polling
 
     return Response(stream_with_context(generate()), mimetype='text/event-stream')
 
