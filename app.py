@@ -254,11 +254,12 @@ def ecg_sse():
             result = fetch_data(query, (patient_id,))
             if result:
                 current_id = result["id"]
+                print("current_id", current_id)
                 ecg = result["ecg"]
                 if current_id != last_id:
                     last_id = current_id
                     yield f"data: {ecg}\n\n"
-            time.sleep(0.05)  # try 50ms polling
+            time.sleep(0.01)  # try 50ms polling
 
     return Response(stream_with_context(generate()), mimetype='text/event-stream')
 
