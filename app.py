@@ -243,7 +243,6 @@ def ecg_sse():
         return "Patient ID is required", 400
 
     def generate():
-        last_ecg = None
         while True:
             query = """
                 SELECT ecg FROM health_vitals
@@ -254,10 +253,8 @@ def ecg_sse():
             result = fetch_data(query, (patient_id,))
             if result:
                 ecg = result["ecg"]
-                if ecg != last_ecg:
-                    last_ecg = ecg
-                    yield f"data: {ecg}\n\n"
-            time.sleep(0.2)  # stream every 200ms
+                yield f"data: {ecg}\n\n"
+            time.sleep(0.2)
 
     return Response(stream_with_context(generate()), mimetype='text/event-stream')
 
