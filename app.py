@@ -1,8 +1,9 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response, stream_with_context
 from flask_cors import CORS
 import bcrypt  # For secure password hashing
 from db_utils import fetch_data, fetch_all_data, modify_data, get_db_connection, fetch_latest_data  # Import database utility functions
 from datetime import datetime, timedelta
+import time
 import os
 from pytz import timezone
 import threading
@@ -235,34 +236,30 @@ def get_sensor_data():
         print(f"[EXCEPTION] Error in /get_sensor API: {e}")
         return jsonify({"error": f"An error occurred: {e}"}), 500
 
-@app.route('/get_sensor_stream', methods=['GET'])
-def get_sensor_stream():
-    try:
-        patient_id = request.args.get("patient_id")
-        limit = int(request.args.get("limit", 100))
+@app.route('/ecg_sse')
+def ecg_sse():
+    patient_id = request.args.get("patient_id")
+    if not patient_id:
+        return "Patient ID is required", 400
 
-        if not patient_id:
-            return jsonify({"error": "Patient ID is required"}), 400
+    def generate():
+        last_ecg = None
+        while True:
+            query = """
+                SELECT ecg FROM health_vitals
+                WHERE patientID = %s
+                ORDER BY timestamp DESC
+                LIMIT 1
+            """
+            result = fetch_data(query, (patient_id,))
+            if result:
+                ecg = result["ecg"]
+                if ecg != last_ecg:
+                    last_ecg = ecg
+                    yield f"data: {ecg}\n\n"
+            time.sleep(0.2)  # stream every 200ms
 
-        query = """
-            SELECT timestamp, ecg FROM health_vitals
-            WHERE patientID = %s
-            AND timestamp > NOW() - INTERVAL '10 seconds'
-            ORDER BY timestamp DESC
-            LIMIT %s
-        """
-        rows = fetch_all_data(query, (patient_id, limit))
-        rows = rows[::-1]  # Oldest to newest
-
-        for row in rows:
-            if isinstance(row["timestamp"], datetime):
-                row["timestamp"] = row["timestamp"].strftime("%Y-%m-%d %H:%M:%S.%f")
-
-        return jsonify(rows), 200
-
-    except Exception as e:
-        print(f"[EXCEPTION] /get_sensor_stream error: {e}")
-        return jsonify({"error": f"An error occurred: {e}"}), 500
+    return Response(stream_with_context(generate()), mimetype='text/event-stream')
 
 @app.route('/get_patient_id', methods=['GET'])
 def get_patient_id():
