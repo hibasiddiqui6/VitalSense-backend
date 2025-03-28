@@ -249,7 +249,7 @@ def ecg_sse():
                 SELECT id, ecg FROM health_vitals
                 WHERE patientID = %s
                 ORDER BY timestamp DESC
-                LIMIT 1
+                LIMIT 10
             """
             result = fetch_data(query, (patient_id,))
             if result:
