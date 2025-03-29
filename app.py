@@ -153,14 +153,17 @@ def insert_sensor_data(data, ids):
 def receive_sensor_data():
     global sensor_data
     try:
-        data = request.json
-        print(f"[DEBUG] Raw request: {request.data}")
+        # Log raw request
+        print(f"[DEBUG] Raw request body: {request.data}")
+        data = request.get_json(force=True)
+
         ecg = data.get("ecg")
         respiration = data.get("respiration")
         temperature = data.get("temperature")
         timestamp = data.get("timestamp")
 
         if None in [ecg, respiration, temperature, timestamp]:
+            print("[WARN] Missing sensor fields")
             return jsonify({"error": "Missing sensor fields"}), 400
 
         if not hasattr(app, "linked_ids"):
@@ -173,11 +176,13 @@ def receive_sensor_data():
             """
             result = fetch_data(query)
             if not result:
+                print("[WARN] No linked SmartShirt found")
                 return jsonify({"error": "No active SmartShirt linked to a patient"}), 404
             app.linked_ids = {
                 "patient_id": result["patientid"],
                 "smartshirt_id": result["smartshirtid"]
             }
+            print(f"[INIT] Linked IDs loaded: {app.linked_ids}")
 
         ids = app.linked_ids
 
@@ -192,7 +197,7 @@ def receive_sensor_data():
             "timestamp": formatted_pkt
         }
 
-        print(f"[{datetime.now()}] ✅ Received Data for Patient {ids['patient_id']}: {sensor_data}")
+        print(f"[{datetime.now()}] ✅ Received Sensor Data for Patient {ids['patient_id']}: {sensor_data}")
 
         # Async insert
         threading.Thread(target=insert_sensor_data, args=(sensor_data, ids)).start()
