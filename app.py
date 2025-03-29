@@ -154,6 +154,7 @@ def receive_sensor_data():
     global sensor_data
     try:
         data = request.json
+        print(f"[DEBUG] Raw request: {request.data}")
         ecg = data.get("ecg")
         respiration = data.get("respiration")
         temperature = data.get("temperature")
@@ -201,6 +202,11 @@ def receive_sensor_data():
     except Exception as e:
         print(f"[EXCEPTION] /sensor error: {e}")
         return jsonify({"error": f"An error occurred: {e}"}), 500
+
+@app.route('/testhook', methods=['POST'])
+def testhook():
+    print(f"[HOOK] Received: {request.json}")
+    return jsonify({"status": "received"}), 200
 
 @app.route('/get_sensor', methods=['GET'])
 def get_sensor_data():
