@@ -154,7 +154,7 @@ def receive_sensor_data():
     global sensor_data
     try:
         # Log raw request
-        print(f"[DEBUG] Raw request body: {request.data}")
+        # print(f"[DEBUG] Raw request body: {request.data}")
         data = request.get_json(force=True)
 
         ecg = data.get("ecg")
@@ -207,11 +207,6 @@ def receive_sensor_data():
     except Exception as e:
         print(f"[EXCEPTION] /sensor error: {e}")
         return jsonify({"error": f"An error occurred: {e}"}), 500
-
-@app.route('/testhook', methods=['POST'])
-def testhook():
-    print(f"[HOOK] Received: {request.json}")
-    return jsonify({"status": "received"}), 200
 
 @app.route('/get_sensor', methods=['GET'])
 def get_sensor_data():
@@ -270,10 +265,9 @@ def ecg_sse():
                 if current_id != last_id:
                     last_id = current_id
                     yield f"data: {ecg}\n\n"
-            time.sleep(0.01)  # try 50ms polling
+            time.sleep(1)  # try 50ms polling
 
     return Response(stream_with_context(generate()), mimetype='text/event-stream')
-
 
 @app.route('/get_patient_id', methods=['GET'])
 def get_patient_id():
@@ -753,6 +747,11 @@ def get_patient_insights(patient_id):
     except Exception as e:
         print(f"Error fetching patient insights: {e}")
         return jsonify({"error": f"An error occurred: {e}"}), 500
+
+@app.route('/testhook', methods=['POST'])
+def testhook():
+    print(f"[HOOK] Received: {request.json}")
+    return jsonify({"status": "received"}), 200
 
 @app.route('/ping', methods=['GET'])
 def ping():
